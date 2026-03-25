@@ -3,7 +3,7 @@ import { jsPDF } from 'jspdf';
 import type { CubeModule } from '../App';
 import { getGridBounds } from '../App';
 
-export async function generateBlueprints(cubes: CubeModule[]) {
+export async function generateBlueprints(cubes: CubeModule[], userViewDataUrl?: string) {
   const width = 1200;
   const height = 1200;
   
@@ -118,8 +118,8 @@ export async function generateBlueprints(cubes: CubeModule[]) {
   const center = box3.getCenter(new THREE.Vector3());
   
   const maxDim = Math.max(size.x, size.y, size.z, 2);
-  const d = maxDim * 0.6; 
-  const cameraZ = Math.max(maxDim * 2, 10);
+  const d = maxDim * 0.85; // Ampliado para asegurar que nada se corte
+  const cameraZ = Math.max(maxDim * 3, 15);
 
   const renderView = (posX: number, posY: number, posZ: number, lookAt: THREE.Vector3, isTop: boolean = false) => {
     const camera = new THREE.OrthographicCamera(-d, d, d, -d, -100, 1000);
@@ -175,6 +175,15 @@ export async function generateBlueprints(cubes: CubeModule[]) {
 
   pdf.text('ALZADO LATERAL DER (Este)', 160, 150);
   pdf.addImage(views.right, 'JPEG', 150, 155, 100, 100);
+
+  // PAGE 3: Perspectiva del Cliente
+  if (userViewDataUrl) {
+    pdf.addPage();
+    pdf.setFont('helvetica', 'bold');
+    pdf.setFontSize(18);
+    pdf.text('PERSPECTIVA 3D DEL CLIENTE', 20, 20);
+    pdf.addImage(userViewDataUrl, 'JPEG', 20, 30, 250, 150);
+  }
 
   pdf.save('Planos_Tecnicos_Medgon.pdf');
   

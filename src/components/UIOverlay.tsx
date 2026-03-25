@@ -242,7 +242,11 @@ export default function UIOverlay({ cubes, cubeCount, floors, totalBudget, onRes
             <FolderOpen size={18} />
             Cargar
           </button>
-          <button onClick={() => generateBlueprints(cubes)} className="btn bg-sky-500/20 hover:bg-sky-500/40 text-sky-400 py-3 flex flex-col items-center justify-center gap-1 text-[10px] font-bold" title="Planos Técnicos en PDF">
+          <button onClick={() => {
+            const canvas = document.querySelector('canvas');
+            const dataUrl = canvas ? canvas.toDataURL('image/jpeg', 1.0) : undefined;
+            generateBlueprints(cubes, dataUrl);
+          }} className="btn bg-sky-500/20 hover:bg-sky-500/40 text-sky-400 py-3 flex flex-col items-center justify-center gap-1 text-[10px] font-bold" title="Planos Técnicos en PDF">
             <Printer size={18} />
             Planos PDF
           </button>
