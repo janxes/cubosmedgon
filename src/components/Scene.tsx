@@ -1,22 +1,32 @@
 import type { ThreeEvent } from '@react-three/fiber';
-import type { CubeModule, Rotation3D } from '../App';
-import type { ModuleType } from './UIOverlay';
+import type { CubeModule, Rotation3D, ToolType, ModuleType, WindowType, WindowAlign } from '../App';
 import { getGridBounds } from '../App';
 import Cube from './Cube';
 
 interface SceneProps {
   cubes: CubeModule[];
-  onAddCube: (gx: number, gy: number, gz: number, type: ModuleType, rot: Rotation3D) => void;
-  onRemoveCube: (id: string) => void;
-  activeModuleType: ModuleType;
+  activeTool: ToolType;
   activeRot: Rotation3D;
-  isOccupied: (x: number, y: number, z: number) => boolean;
+  activeWindowAlign: WindowAlign;
+  selectedCubeId: string | null;
+  isOccupied: (x: number, y: number, z: number, ignoreId?: string) => boolean;
+  onAddCube: (gx: number, gy: number, gz: number, type: ModuleType, rot: Rotation3D) => void;
+  onMoveCube: (id: string, gx: number, gy: number, gz: number) => void;
+  onSelectCube: (id: string | null) => void;
+  onRemoveCube: (id: string) => void;
+  onAddWindow: (id: string, normalStr: string, wType: WindowType, align: WindowAlign) => void;
+  onRemoveWindow: (id: string, normalStr: string) => void;
 }
 
-export default function Scene({ cubes, onAddCube, onRemoveCube, activeModuleType, activeRot, isOccupied }: SceneProps) {
+export default function Scene({ 
+  cubes, activeTool, activeRot, activeWindowAlign, selectedCubeId, 
+  isOccupied, onAddCube, onMoveCube, onSelectCube, onRemoveCube, 
+  onAddWindow, onRemoveWindow 
+}: SceneProps) {
   
   const handlePlaneClick = (e: ThreeEvent<MouseEvent>) => {
     e.stopPropagation();
+
     const cellX = Math.floor(e.point.x / 0.5);
     const cellZ = Math.floor(e.point.z / 0.5);
     
@@ -25,8 +35,20 @@ export default function Scene({ cubes, onAddCube, onRemoveCube, activeModuleType
     const gz = cellZ % 2 === 0 ? cellZ : cellZ - 1;
     const gy = 0; 
     
+    if (activeTool === 'SELECT') {
+      if (selectedCubeId) {
+        onMoveCube(selectedCubeId, gx, gy, gz);
+        onSelectCube(null); // drop selection after move
+      } else {
+        onSelectCube(null);
+      }
+      return;
+    }
+
+    if (activeTool !== 'A' && activeTool !== 'B') return;
+
     // check bounds collision
-    const [w, h, d] = getGridBounds(activeModuleType, activeRot);
+    const [w, h, d] = getGridBounds(activeTool as ModuleType, activeRot);
     let collision = false;
     for (let dx = 0; dx < w; dx++) {
       for (let dy = 0; dy < h; dy++) {
@@ -37,9 +59,12 @@ export default function Scene({ cubes, onAddCube, onRemoveCube, activeModuleType
     }
     
     if (!collision) {
-      onAddCube(gx, gy, gz, activeModuleType, activeRot);
+      onAddCube(gx, gy, gz, activeTool as ModuleType, activeRot);
     }
   };
+
+  const selectedCube = cubes.find(c => c.id === selectedCubeId);
+  const selectedBounds = selectedCube ? getGridBounds(selectedCube.type, selectedCube.rot) : [1,1,1];
 
   return (
     <>
@@ -52,11 +77,18 @@ export default function Scene({ cubes, onAddCube, onRemoveCube, activeModuleType
         <Cube 
           key={cube.id} 
           cube={cube}
-          onAdd={onAddCube}
-          onRemove={onRemoveCube}
-          activeModuleType={activeModuleType}
+          activeTool={activeTool}
           activeRot={activeRot}
+          activeWindowAlign={activeWindowAlign}
+          selectedCubeId={selectedCubeId}
+          selectedBounds={selectedBounds as [number, number, number]}
           isOccupied={isOccupied}
+          onAddCube={onAddCube}
+          onMoveCube={onMoveCube}
+          onSelectCube={onSelectCube}
+          onRemoveCube={onRemoveCube}
+          onAddWindow={onAddWindow}
+          onRemoveWindow={onRemoveWindow}
         />
       ))}
     </>
