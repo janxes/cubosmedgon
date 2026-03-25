@@ -1,6 +1,7 @@
-import { Layers, RotateCcw, Download, Square, ArrowUpSquare, ArrowDownSquare, Grid3X3, Building, AlignCenterVertical, Settings2, HandCoins, Box, Sidebar, Maximize, Columns, PanelLeft, Eraser, MousePointerClick, AlignLeft, AlignCenter, AlignRight, Save, FolderOpen, ClipboardCopy } from 'lucide-react';
+import { Layers, RotateCcw, Download, Square, ArrowUpSquare, ArrowDownSquare, Grid3X3, Building, AlignCenterVertical, Settings2, HandCoins, Box, Sidebar, Maximize, Columns, PanelLeft, Eraser, MousePointerClick, AlignLeft, AlignCenter, AlignRight, Save, FolderOpen, ClipboardCopy, Printer } from 'lucide-react';
 import type { Rotation3D, ToolType, WindowAlign, CubeModule } from '../App';
 import { MODULE_PRICES, WINDOW_PRICES } from '../App';
+import { generateBlueprints } from '../utils/blueprintExporter';
 
 export const TOOLS = [
   { id: 'SELECT', name: 'Mover', icon: MousePointerClick, desc: 'Toca un módulo para seleccionarlo y moverlo o girarlo en sitio.' },
@@ -232,7 +233,7 @@ export default function UIOverlay({ cubes, cubeCount, floors, totalBudget, onRes
       </div>
 
       <div className="mt-8 flex flex-col gap-4 relative">
-        <div className="grid grid-cols-2 xl:grid-cols-4 gap-2 w-full">
+        <div className="grid grid-cols-2 xl:grid-cols-5 gap-2 w-full">
           <button onClick={onSave} className="btn bg-indigo-500/20 hover:bg-indigo-500/40 text-indigo-300 py-3 flex flex-col items-center justify-center gap-1 text-[10px] font-bold" title="Guardar Proyecto Local">
             <Save size={18} />
             Guardar
@@ -241,7 +242,11 @@ export default function UIOverlay({ cubes, cubeCount, floors, totalBudget, onRes
             <FolderOpen size={18} />
             Cargar
           </button>
-          <button onClick={handleExport} className="btn bg-white/10 hover:bg-white/20 py-3 flex flex-col items-center justify-center gap-1 text-[10px] font-bold" title="Exportar Diseño PNG">
+          <button onClick={() => generateBlueprints(cubes)} className="btn bg-sky-500/20 hover:bg-sky-500/40 text-sky-400 py-3 flex flex-col items-center justify-center gap-1 text-[10px] font-bold" title="Planos Técnicos en PDF">
+            <Printer size={18} />
+            Planos PDF
+          </button>
+          <button onClick={handleExport} className="btn bg-white/10 hover:bg-white/20 py-3 flex flex-col items-center justify-center gap-1 text-[10px] font-bold" title="Exportar Rápido PNG">
             <Download size={18} />
             Foto PNG
           </button>

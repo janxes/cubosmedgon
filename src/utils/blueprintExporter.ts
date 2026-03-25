@@ -1,0 +1,182 @@
+import * as THREE from 'three';
+import { jsPDF } from 'jspdf';
+import type { CubeModule } from '../App';
+import { getGridBounds } from '../App';
+
+export async function generateBlueprints(cubes: CubeModule[]) {
+  const width = 1200;
+  const height = 1200;
+  
+  const canvas = document.createElement('canvas');
+  canvas.width = width;
+  canvas.height = height;
+  
+  const renderer = new THREE.WebGLRenderer({ canvas, alpha: false, antialias: true, preserveDrawingBuffer: true });
+  renderer.setSize(width, height);
+  renderer.setClearColor(0xffffff, 1); // White crisp background
+
+  const scene = new THREE.Scene();
+  
+  const ambient = new THREE.AmbientLight(0xffffff, 0.9);
+  scene.add(ambient);
+  const dirLight = new THREE.DirectionalLight(0xffffff, 0.5);
+  dirLight.position.set(10, 20, 10);
+  scene.add(dirLight);
+
+  // Construct headless twin scene for orthographic CAD snapshots
+  cubes.forEach(cube => {
+    if (cube.id === 'initial' && Object.keys(cube.windows).length === 0 && cubes.length === 1) return;
+    
+    const [cw, ch, cd] = getGridBounds(cube.type, cube.rot);
+    const worldX = (cube.pos[0] + cw / 2) * 0.5;
+    const worldY = (cube.pos[1] + ch / 2) * 0.5;
+    const worldZ = (cube.pos[2] + cd / 2) * 0.5;
+    
+    const group = new THREE.Group();
+    group.position.set(worldX, worldY, worldZ);
+    group.rotation.set(
+      cube.rot[0] * Math.PI / 180,
+      cube.rot[1] * Math.PI / 180,
+      cube.rot[2] * Math.PI / 180
+    );
+
+    const args: [number, number, number] = cube.type === 'B' ? [0.5, 1, 1] : [1, 1, 1];
+    const geo = new THREE.BoxGeometry(...args);
+    // Flat shaded technical look
+    const mat = new THREE.MeshStandardMaterial({ color: 0xf1f5f9, roughness: 1.0, flatShading: true }); 
+    const box = new THREE.Mesh(geo, mat);
+    
+    // Exact black outlines for CAD printouts
+    const edgesGeo = new THREE.EdgesGeometry(geo, 15);
+    const edgesMat = new THREE.LineBasicMaterial({ color: 0x0f172a, linewidth: 2 });
+    const edges = new THREE.LineSegments(edgesGeo, edgesMat);
+    box.add(edges);
+    group.add(box);
+
+    // Apply Windows
+    if (cube.windows) {
+      Object.entries(cube.windows).map(([normalStr, wData]) => {
+          const [nx, ny, nz] = normalStr.split(',').map(Number);
+          
+          let rotX = 0, rotY = 0, rotZ = 0;
+          if (nx === 1) rotY = Math.PI / 2;
+          if (nx === -1) rotY = -Math.PI / 2;
+          if (ny === 1) rotX = -Math.PI / 2;
+          if (ny === -1) rotX = Math.PI / 2;
+          if (nz === 1) rotY = 0;
+          if (nz === -1) rotY = Math.PI;
+
+          const wMultiplier = wData.type === 'full' ? 0.95 : wData.type === 'half' ? 0.50 : 0.33;
+          
+          let planeW = wMultiplier;
+          let planeH = args[1] * 0.75;
+          let localFaceWidth = 1;
+
+          if (nx !== 0) { planeW *= args[2]; localFaceWidth = args[2]; } 
+          else if (nz !== 0) { planeW *= args[0]; localFaceWidth = args[0]; } 
+          else if (ny !== 0) { planeW *= args[0]; planeH = args[2] * 0.75; localFaceWidth = args[0]; } 
+
+          let px = nx * (args[0] / 2 + 0.001);
+          let py = ny * (args[1] / 2 + 0.001);
+          let pz = nz * (args[2] / 2 + 0.001);
+
+          if (wData.align === 'left' || wData.align === 'right') {
+             const gap = localFaceWidth - planeW;
+             let shift = gap / 2;
+             if (wData.align === 'left') shift = -shift;
+
+             if (nx === 1) { pz += shift; }
+             if (nx === -1) { pz -= shift; }
+             if (nz === 1) { px += shift; }
+             if (nz === -1) { px -= shift; }
+          }
+
+          const winGeo = new THREE.PlaneGeometry(planeW, planeH);
+          const winMat = new THREE.MeshBasicMaterial({ color: 0x38bdf8, transparent: true, opacity: 0.8, side: THREE.DoubleSide });
+          const winPlane = new THREE.Mesh(winGeo, winMat);
+          winPlane.position.set(px, py, pz);
+          winPlane.rotation.set(rotX, rotY, rotZ);
+          
+          const winEdgesGeo = new THREE.EdgesGeometry(winGeo);
+          const winEdgesMat = new THREE.LineBasicMaterial({ color: 0x0284c7 });
+          const winEdges = new THREE.LineSegments(winEdgesGeo, winEdgesMat);
+          winPlane.add(winEdges);
+          
+          group.add(winPlane);
+      });
+    }
+
+    scene.add(group);
+  });
+
+  const box3 = new THREE.Box3().setFromObject(scene);
+  if (box3.isEmpty()) {
+    box3.set(new THREE.Vector3(-2,-2,-2), new THREE.Vector3(2,2,2));
+  }
+  
+  const size = box3.getSize(new THREE.Vector3());
+  const center = box3.getCenter(new THREE.Vector3());
+  
+  const maxDim = Math.max(size.x, size.y, size.z, 2);
+  const d = maxDim * 0.6; 
+  const cameraZ = Math.max(maxDim * 2, 10);
+
+  const renderView = (posX: number, posY: number, posZ: number, lookAt: THREE.Vector3, isTop: boolean = false) => {
+    const camera = new THREE.OrthographicCamera(-d, d, d, -d, -100, 1000);
+    camera.position.set(center.x + posX, center.y + posY, center.z + posZ);
+    camera.lookAt(lookAt);
+    
+    if (isTop) {
+      camera.up.set(0, 0, -1);
+      camera.lookAt(lookAt);
+    }
+
+    renderer.render(scene, camera);
+    return canvas.toDataURL('image/jpeg', 1.0);
+  };
+
+  const views = {
+    top: renderView(0, cameraZ, 0, center, true),
+    front: renderView(0, 0, cameraZ, center),
+    back: renderView(0, 0, -cameraZ, center),
+    left: renderView(-cameraZ, 0, 0, center),
+    right: renderView(cameraZ, 0, 0, center)
+  };
+
+  const pdf = new jsPDF('landscape', 'mm', 'a4');
+  
+  // PAGE 1: Planta Superior
+  pdf.setFont('helvetica', 'bold');
+  pdf.setFontSize(22);
+  pdf.text('PLANOS TÉCNICOS - MEDGÓN', 20, 20);
+  
+  pdf.setFontSize(12);
+  pdf.setFont('helvetica', 'normal');
+  pdf.text('PLANTA (Vista Superior Perimetral - Escala No Dimensional)', 20, 35);
+  // Box dimension is [width 297, height 210] roughly
+  pdf.addImage(views.top, 'JPEG', 75, 45, 140, 140);
+
+  // PAGE 2: Alzados (Elevaciones)
+  pdf.addPage();
+  pdf.setFont('helvetica', 'bold');
+  pdf.setFontSize(18);
+  pdf.text('ALZADOS (Fachadas Exteriores y Ventanas)', 20, 20);
+
+  pdf.setFontSize(10);
+  pdf.setFont('helvetica', 'bold');
+  pdf.text('ALZADO FRONTAL (Sur)', 40, 40);
+  pdf.addImage(views.front, 'JPEG', 30, 45, 100, 100);
+
+  pdf.text('ALZADO POSTERIOR (Norte)', 160, 40);
+  pdf.addImage(views.back, 'JPEG', 150, 45, 100, 100);
+
+  pdf.text('ALZADO LATERAL IZQ (Oeste)', 40, 150);
+  pdf.addImage(views.left, 'JPEG', 30, 155, 100, 100);
+
+  pdf.text('ALZADO LATERAL DER (Este)', 160, 150);
+  pdf.addImage(views.right, 'JPEG', 150, 155, 100, 100);
+
+  pdf.save('Planos_Tecnicos_Medgon.pdf');
+  
+  renderer.dispose();
+}
