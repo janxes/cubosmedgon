@@ -131,15 +131,16 @@ export default function UIOverlay({ cubes, cubeCount, floors, totalBudget, onRes
       </div>
 
       <div className="glass-panel p-5 border-l-4 border-l-amber-500">
-        <div className="flex flex-col xl:flex-row justify-between xl:items-center gap-3 mb-4">
-            <p className="text-amber-400 text-sm uppercase tracking-widest font-bold flex items-center gap-2 m-0 whitespace-nowrap">
-              <Settings2 size={18} /> Herramientas
-            </p>
-            <div className="flex gap-2">
-               <button onClick={undo} disabled={!canUndo} className={`btn py-1 px-3 text-xs bg-white/10 hover:bg-white/20 justify-center font-bold tracking-wider ${!canUndo ? 'opacity-50 cursor-not-allowed' : ''}`} title="Deshacer"><Undo2 size={18} /></button>
-               <button onClick={redo} disabled={!canRedo} className={`btn py-1 px-3 text-xs bg-white/10 hover:bg-white/20 justify-center font-bold tracking-wider ${!canRedo ? 'opacity-50 cursor-not-allowed' : ''}`} title="Rehacer"><Redo2 size={18} /></button>
-               <button onClick={handleRotate} className="btn py-1 px-3 text-xs bg-white/10 hover:bg-white/20 w-full justify-center font-bold tracking-wider" title={activeTool === 'SELECT' ? "Rotar Módulo Seleccionado" : "Rotar Nueva Pieza"}>GIRAR MÓDULO ⟳</button>
-            </div>
+        <p className="text-amber-400 text-sm uppercase tracking-widest font-bold flex items-center gap-2 mb-4">
+          <Settings2 size={18} /> Herramientas
+        </p>
+
+        <div className="grid grid-cols-3 gap-2 mb-4">
+           <button onClick={undo} disabled={!canUndo} className={`btn py-2 flex flex-col items-center gap-1 text-[10px] bg-white/10 hover:bg-white/20 justify-center font-bold tracking-wider rounded-lg border border-white/10 ${!canUndo ? 'opacity-30 cursor-not-allowed' : ''}`} title="Deshacer"><Undo2 size={18} /> DESHACER</button>
+           <button onClick={redo} disabled={!canRedo} className={`btn py-2 flex flex-col items-center gap-1 text-[10px] bg-white/10 hover:bg-white/20 justify-center font-bold tracking-wider rounded-lg border border-white/10 ${!canRedo ? 'opacity-30 cursor-not-allowed' : ''}`} title="Rehacer"><Redo2 size={18} /> REHACER</button>
+           <button onClick={handleRotate} className="btn py-2 flex flex-col items-center gap-1 text-[10px] bg-white/10 hover:bg-white/20 justify-center font-bold tracking-wider rounded-lg border border-white/10" title={activeTool === 'SELECT' ? "Rotar Módulo Seleccionado" : "Rotar Nueva Pieza"}>
+              <RotateCcw size={18} /> GIRAR
+           </button>
         </div>
         
         {isWindowTool && (
