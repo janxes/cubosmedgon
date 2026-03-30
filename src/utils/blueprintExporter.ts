@@ -121,7 +121,7 @@ export async function generateBlueprints(cubes: CubeModule[], userViewDataUrl: s
   const center = box3.getCenter(new THREE.Vector3());
   
   const maxDim = Math.max(size.x, size.y, size.z, 2);
-  const d = maxDim * 0.85; 
+  const d = maxDim * 1.25; // Increased from 0.85 to add generous margins
   const cameraZ = Math.max(maxDim * 3, 15);
 
   const renderView = (posX: number, posY: number, posZ: number, lookAt: THREE.Vector3, isTop: boolean = false) => {

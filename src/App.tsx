@@ -46,9 +46,30 @@ function App() {
   const [activeWindowAlign, setActiveWindowAlign] = useState<WindowAlign>('center');
   const [selectedCubeId, setSelectedCubeId] = useState<string | null>(null);
 
-  const [cubes, setCubes] = useState<CubeModule[]>([
-    { id: 'initial', pos: [0, 0, 0], type: 'A', rot: [0, 0, 0], windows: {} }
+  const [history, setHistory] = useState<CubeModule[][]>([
+    [{ id: 'initial', pos: [0, 0, 0], type: 'A', rot: [0, 0, 0], windows: {} }]
   ]);
+  const [historyIndex, setHistoryIndex] = useState(0);
+
+  const cubes = history[historyIndex];
+
+  const setCubes = (action: React.SetStateAction<CubeModule[]>) => {
+    const nextState = typeof action === 'function' ? action(cubes) : action;
+    const newHistory = history.slice(0, historyIndex + 1);
+    newHistory.push(nextState);
+    setHistory(newHistory);
+    setHistoryIndex(newHistory.length - 1);
+  };
+
+  const undo = () => {
+    if (historyIndex > 0) setHistoryIndex(historyIndex - 1);
+    setSelectedCubeId(null);
+  };
+
+  const redo = () => {
+    if (historyIndex < history.length - 1) setHistoryIndex(historyIndex + 1);
+    setSelectedCubeId(null);
+  };
 
   useEffect(() => {
     if (activeTool !== 'SELECT' && activeTool !== 'ERASE') {
@@ -198,6 +219,10 @@ function App() {
         floors={floors}
         totalBudget={totalBudget}
         onReset={resetProject} 
+        undo={undo}
+        redo={redo}
+        canUndo={historyIndex > 0}
+        canRedo={historyIndex < history.length - 1}
         onSave={() => {
           localStorage.setItem('medgon-project', JSON.stringify(cubes));
           alert('✅ Proyecto guardado con éxito en el navegador.');

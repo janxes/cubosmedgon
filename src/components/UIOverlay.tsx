@@ -1,4 +1,4 @@
-import { Layers, RotateCcw, Download, Square, ArrowUpSquare, ArrowDownSquare, Grid3X3, Building, AlignCenterVertical, Settings2, HandCoins, Box, Sidebar, Maximize, Columns, PanelLeft, Eraser, MousePointerClick, AlignLeft, AlignCenter, AlignRight, Save, FolderOpen, ClipboardCopy, Printer } from 'lucide-react';
+import { Layers, RotateCcw, Download, Square, ArrowUpSquare, ArrowDownSquare, Grid3X3, Building, AlignCenterVertical, Settings2, HandCoins, Box, Sidebar, Maximize, Columns, PanelLeft, Eraser, MousePointerClick, AlignLeft, AlignCenter, AlignRight, Save, FolderOpen, ClipboardCopy, Printer, Undo2, Redo2 } from 'lucide-react';
 import type { Rotation3D, ToolType, WindowAlign, CubeModule } from '../App';
 import { MODULE_PRICES, WINDOW_PRICES } from '../App';
 import { generateBlueprints } from '../utils/blueprintExporter';
@@ -19,6 +19,10 @@ interface UIOverlayProps {
   floors: number;
   totalBudget: number;
   onReset: () => void;
+  undo: () => void;
+  redo: () => void;
+  canUndo: boolean;
+  canRedo: boolean;
   onSave: () => void;
   onLoad: () => void;
   surfaces: {
@@ -39,7 +43,7 @@ interface UIOverlayProps {
   hasSelection: boolean;
 }
 
-export default function UIOverlay({ cubes, cubeCount, floors, totalBudget, onReset, onSave, onLoad, surfaces, activeTool, setActiveTool, activeRot, setActiveRot, activeWindowAlign, setActiveWindowAlign, onRotateSelected, hasSelection }: UIOverlayProps) {
+export default function UIOverlay({ cubes, cubeCount, floors, totalBudget, onReset, undo, redo, canUndo, canRedo, onSave, onLoad, surfaces, activeTool, setActiveTool, activeRot, setActiveRot, activeWindowAlign, setActiveWindowAlign, onRotateSelected, hasSelection }: UIOverlayProps) {
   const formattedBudget = new Intl.NumberFormat('es-ES', { style: 'currency', currency: 'EUR', maximumFractionDigits: 0 }).format(totalBudget);
 
   const handleExport = () => {
@@ -132,6 +136,8 @@ export default function UIOverlay({ cubes, cubeCount, floors, totalBudget, onRes
               <Settings2 size={18} /> Herramientas
             </p>
             <div className="flex gap-2">
+               <button onClick={undo} disabled={!canUndo} className={`btn py-1 px-3 text-xs bg-white/10 hover:bg-white/20 justify-center font-bold tracking-wider ${!canUndo ? 'opacity-50 cursor-not-allowed' : ''}`} title="Deshacer"><Undo2 size={18} /></button>
+               <button onClick={redo} disabled={!canRedo} className={`btn py-1 px-3 text-xs bg-white/10 hover:bg-white/20 justify-center font-bold tracking-wider ${!canRedo ? 'opacity-50 cursor-not-allowed' : ''}`} title="Rehacer"><Redo2 size={18} /></button>
                <button onClick={handleRotate} className="btn py-1 px-3 text-xs bg-white/10 hover:bg-white/20 w-full justify-center font-bold tracking-wider" title={activeTool === 'SELECT' ? "Rotar Módulo Seleccionado" : "Rotar Nueva Pieza"}>GIRAR MÓDULO ⟳</button>
             </div>
         </div>
