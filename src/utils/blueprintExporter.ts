@@ -1,7 +1,9 @@
 import * as THREE from 'three';
 import { jsPDF } from 'jspdf';
 import type { CubeModule } from '../App';
-import { getGridBounds, MODULE_PRICES, WINDOW_PRICES } from '../App';
+import { getGridBounds, MODULE_PRICES, WINDOW_PRICES, ROOF_PRICE_PER_MODULE } from '../App';
+import { generateUnifiedRoofs } from './roofAlgorithm';
+import type { UnifiedRoof } from './roofAlgorithm';
 
 export async function generateBlueprints(cubes: CubeModule[], userViewDataUrl: string | undefined, surfaces: any, totalBudget: number) {
   const width = 1200;
@@ -22,13 +24,14 @@ export async function generateBlueprints(cubes: CubeModule[], userViewDataUrl: s
   dirLight.position.set(10, 20, 10);
   scene.add(dirLight);
 
-  let countA = 0, countB = 0, wFull = 0, wHalf = 0, wThird = 0;
+  let countA = 0, countB = 0, wFull = 0, wHalf = 0, wThird = 0, roofs = 0;
 
   cubes.forEach(cube => {
     if (cube.id === 'initial' && Object.keys(cube.windows).length === 0 && cubes.length === 1) return;
     
     if (cube.type === 'A') countA++;
     if (cube.type === 'B') countB++;
+    if (cube.hasRoof) roofs++;
     if (cube.windows) {
       Object.values(cube.windows).forEach(w => {
         if (w.type === 'full') wFull++;
@@ -112,6 +115,46 @@ export async function generateBlueprints(cubes: CubeModule[], userViewDataUrl: s
     scene.add(group);
   });
 
+  // Render Roofs
+  const unifiedRoofs = generateUnifiedRoofs(cubes);
+  unifiedRoofs.forEach((roof: UnifiedRoof) => {
+    const cellSize = 0.5;
+    
+    const positions: number[] = [];
+    const indices: number[] = [];
+    
+    let vertexOffset = 0;
+
+    roof.polygons3D.forEach(poly => {
+       poly.forEach(pt => {
+           positions.push(pt.x * cellSize, pt.y * cellSize, pt.z * cellSize);
+       });
+       
+       const n = poly.length;
+       for (let i = 1; i < n - 1; i++) {
+           indices.push(vertexOffset, vertexOffset + i, vertexOffset + i + 1);
+       }
+       vertexOffset += n;
+    });
+
+    const geom = new THREE.BufferGeometry();
+    geom.setAttribute('position', new THREE.Float32BufferAttribute(positions, 3));
+    geom.setIndex(indices);
+    geom.computeVertexNormals();
+
+    const mat = new THREE.MeshStandardMaterial({ color: 0x475569, roughness: 0.8, flatShading: true, side: THREE.DoubleSide });
+    const roofMesh = new THREE.Mesh(geom, mat);
+
+    const edgesGeo = new THREE.EdgesGeometry(geom, 30);
+    const edgesMat = new THREE.LineBasicMaterial({ color: 0x334155, linewidth: 2 });
+    const edges = new THREE.LineSegments(edgesGeo, edgesMat);
+    roofMesh.add(edges);
+
+    roofMesh.position.set(0, roof.yBase * cellSize, 0);
+    
+    scene.add(roofMesh);
+  });
+
   const box3 = new THREE.Box3().setFromObject(scene);
   if (box3.isEmpty()) {
     box3.set(new THREE.Vector3(-2,-2,-2), new THREE.Vector3(2,2,2));
@@ -191,6 +234,7 @@ export async function generateBlueprints(cubes: CubeModule[], userViewDataUrl: s
   
   drawRow('Módulo Estructural A (3x3x3)', countA, MODULE_PRICES['A']);
   drawRow('Módulo Estrecho B (1.5x3x3)', countB, MODULE_PRICES['B']);
+  drawRow('Tejado Inclinado a 2 Aguas', roofs, ROOF_PRICE_PER_MODULE);
   drawRow('Ventana Panorámica 100%', wFull, WINDOW_PRICES['full']);
   drawRow('Ventana Media 50%', wHalf, WINDOW_PRICES['half']);
   drawRow('Ventana Tercio 33%', wThird, WINDOW_PRICES['third']);

@@ -2,6 +2,7 @@ import type { ThreeEvent } from '@react-three/fiber';
 import type { CubeModule, Rotation3D, ToolType, ModuleType, WindowType, WindowAlign } from '../App';
 import { getGridBounds } from '../App';
 import Cube from './Cube';
+import RoofsRenderer from './RoofsRenderer';
 
 interface SceneProps {
   cubes: CubeModule[];
@@ -16,12 +17,13 @@ interface SceneProps {
   onRemoveCube: (id: string) => void;
   onAddWindow: (id: string, normalStr: string, wType: WindowType, align: WindowAlign) => void;
   onRemoveWindow: (id: string, normalStr: string) => void;
+  onToggleRoof: (id: string) => void;
 }
 
 export default function Scene({ 
   cubes, activeTool, activeRot, activeWindowAlign, selectedCubeId, 
   isOccupied, onAddCube, onMoveCube, onSelectCube, onRemoveCube, 
-  onAddWindow, onRemoveWindow 
+  onAddWindow, onRemoveWindow, onToggleRoof
 }: SceneProps) {
   
   const handlePlaneClick = (e: ThreeEvent<MouseEvent>) => {
@@ -89,8 +91,10 @@ export default function Scene({
           onRemoveCube={onRemoveCube}
           onAddWindow={onAddWindow}
           onRemoveWindow={onRemoveWindow}
+          onToggleRoof={onToggleRoof}
         />
       ))}
+      <RoofsRenderer cubes={cubes} />
     </>
   );
 }

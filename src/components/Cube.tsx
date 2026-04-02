@@ -19,9 +19,10 @@ interface CubeProps {
   onRemoveCube: (id: string) => void;
   onAddWindow: (id: string, normalStr: string, wType: WindowType, align: WindowAlign) => void;
   onRemoveWindow: (id: string, normalStr: string) => void;
+  onToggleRoof: (id: string) => void;
 }
 
-export default function Cube({ cube, activeTool, activeRot, activeWindowAlign, selectedCubeId, selectedBounds, isOccupied, onAddCube, onMoveCube, onSelectCube, onRemoveCube, onAddWindow, onRemoveWindow }: CubeProps) {
+export default function Cube({ cube, activeTool, activeRot, activeWindowAlign, selectedCubeId, selectedBounds, isOccupied, onAddCube, onMoveCube, onSelectCube, onRemoveCube, onAddWindow, onRemoveWindow, onToggleRoof }: CubeProps) {
   const [hovered, setHovered] = useState(false);
   const isSelected = cube.id === selectedCubeId;
 
@@ -67,6 +68,13 @@ export default function Cube({ cube, activeTool, activeRot, activeWindowAlign, s
           onSelectCube(null); // drop selection after move
         }
       }
+      return;
+    }
+
+    if (activeTool === 'ROOF') {
+      // Toggle roof logic only happens if we click the TOP face (normal.y > 0) or any face?
+      // Roofs apply to the whole cube, so clicking any face with the roof tool is enough.
+      onToggleRoof(cube.id);
       return;
     }
 

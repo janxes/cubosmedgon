@@ -1,6 +1,6 @@
-import { Layers, RotateCcw, Download, Square, ArrowUpSquare, ArrowDownSquare, Grid3X3, Building, AlignCenterVertical, Settings2, HandCoins, Box, Sidebar, Maximize, Columns, PanelLeft, Eraser, MousePointerClick, AlignLeft, AlignCenter, AlignRight, Save, FolderOpen, ClipboardCopy, Printer, Undo2, Redo2 } from 'lucide-react';
+import { Layers, RotateCcw, Download, Square, ArrowUpSquare, ArrowDownSquare, Grid3X3, Building, AlignCenterVertical, Settings2, HandCoins, Box, Sidebar, Maximize, Columns, PanelLeft, Eraser, MousePointerClick, AlignLeft, AlignCenter, AlignRight, Save, FolderOpen, ClipboardCopy, Printer, Undo2, Redo2, GraduationCap } from 'lucide-react';
 import type { Rotation3D, ToolType, WindowAlign, CubeModule } from '../App';
-import { MODULE_PRICES, WINDOW_PRICES } from '../App';
+import { MODULE_PRICES, WINDOW_PRICES, ROOF_PRICE_PER_MODULE } from '../App';
 import { generateBlueprints } from '../utils/blueprintExporter';
 
 export const TOOLS = [
@@ -11,6 +11,7 @@ export const TOOLS = [
   { id: 'W_FULL', name: 'Ventana 100%', icon: Maximize, desc: 'Cristalera de ancho completo' },
   { id: 'W_HALF', name: 'Ventana 50%', icon: Columns, desc: 'Cristalera a media anchura' },
   { id: 'W_THIRD', name: 'Ventana 33%', icon: PanelLeft, desc: 'Cristalera a un tercio' },
+  { id: 'ROOF', name: 'Tejado', icon: GraduationCap, desc: 'Añadir o quitar tejado a un módulo' },
 ];
 
 interface UIOverlayProps {
@@ -56,12 +57,13 @@ export default function UIOverlay({ cubes, cubeCount, floors, totalBudget, onRes
   };
 
   const handleCopyExcel = () => {
-    let countA = 0, countB = 0, wFull = 0, wHalf = 0, wThird = 0;
+    let countA = 0, countB = 0, wFull = 0, wHalf = 0, wThird = 0, roofs = 0;
 
     cubes.forEach(c => {
       if (c.id === 'initial' && Object.keys(c.windows || {}).length === 0 && cubes.length === 1) return;
       if (c.type === 'A') countA++;
       if (c.type === 'B') countB++;
+      if (c.hasRoof) roofs++;
       if (c.windows) {
         Object.values(c.windows).forEach(w => {
           if (w.type === 'full') wFull++;
@@ -79,6 +81,7 @@ export default function UIOverlay({ cubes, cubeCount, floors, totalBudget, onRes
 
     if (countA > 0) lines.push(['Módulo Estructural A (3x3x3)', countA.toString(), `${MODULE_PRICES['A']} €`, `${countA * MODULE_PRICES['A']} €`]);
     if (countB > 0) lines.push(['Módulo Estrecho B (1.5x3x3)', countB.toString(), `${MODULE_PRICES['B']} €`, `${countB * MODULE_PRICES['B']} €`]);
+    if (roofs > 0) lines.push(['Tejado Inclinado a 2 Aguas (por módulo)', roofs.toString(), `${ROOF_PRICE_PER_MODULE} €`, `${roofs * ROOF_PRICE_PER_MODULE} €`]);
     if (wFull > 0) lines.push(['Ventana Panorámica 100%', wFull.toString(), `${WINDOW_PRICES['full']} €`, `${wFull * WINDOW_PRICES['full']} €`]);
     if (wHalf > 0) lines.push(['Ventana Media 50%', wHalf.toString(), `${WINDOW_PRICES['half']} €`, `${wHalf * WINDOW_PRICES['half']} €`]);
     if (wThird > 0) lines.push(['Ventana Tercio 33%', wThird.toString(), `${WINDOW_PRICES['third']} €`, `${wThird * WINDOW_PRICES['third']} €`]);
@@ -234,7 +237,7 @@ export default function UIOverlay({ cubes, cubeCount, floors, totalBudget, onRes
           <p className="text-emerald-400 text-sm uppercase tracking-widest font-bold mb-3">Presupuesto Estimado</p>
           <div className="text-4xl lg:text-5xl font-bold text-white stat-value text-gradient mb-1 relative z-10">{formattedBudget}</div>
           <p className="text-gray-400 text-xs mt-3 uppercase font-semibold relative z-10 text-center xl:text-left">
-            A: 15k | B: 7.5k | VENTANAS: 5k/3k/2k
+            A: 15k | B: 7.5k | VENTANAS: 5k/3k/2k | TEJADO: 5k
           </p>
         </div>
       </div>

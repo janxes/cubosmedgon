@@ -10,7 +10,7 @@ export type WindowAlign = 'left' | 'center' | 'right';
 export type WindowData = { type: WindowType, align: WindowAlign };
 export type WindowsMap = Record<string, WindowData>;
 export type ModuleType = 'A' | 'B';
-export type ToolType = 'SELECT' | 'A' | 'B' | 'W_FULL' | 'W_HALF' | 'W_THIRD' | 'ERASE';
+export type ToolType = 'SELECT' | 'A' | 'B' | 'W_FULL' | 'W_HALF' | 'W_THIRD' | 'ERASE' | 'ROOF';
 
 export type CubeModule = {
   id: string;
@@ -19,12 +19,15 @@ export type CubeModule = {
   rot: Rotation3D;
   windows: WindowsMap;
   color?: string;
+  hasRoof?: boolean;
 };
 
 export const MODULE_PRICES: Record<ModuleType, number> = {
   'A': 15000,
   'B': 7500,
 };
+
+export const ROOF_PRICE_PER_MODULE = 5000;
 
 export const WINDOW_PRICES: Record<WindowType, number> = {
   'full': 5000,
@@ -141,7 +144,8 @@ function App() {
   
   const totalBudget = cubes.reduce((acc, c) => {
     const windowsCost = Object.values(c.windows).reduce((sum, w) => sum + WINDOW_PRICES[w.type], 0);
-    return acc + MODULE_PRICES[c.type] + windowsCost;
+    const roofCost = c.hasRoof ? ROOF_PRICE_PER_MODULE : 0;
+    return acc + MODULE_PRICES[c.type] + windowsCost + roofCost;
   }, 0);
 
   const resetProject = () => {
@@ -211,6 +215,10 @@ function App() {
     }));
   };
 
+  const toggleRoof = (id: string) => {
+    setCubes(prev => prev.map(c => c.id === id ? { ...c, hasRoof: !c.hasRoof } : c));
+  };
+
   return (
     <div className="w-full h-screen flex flex-col md:flex-row bg-[#0a0f1d] overflow-hidden">
       <UIOverlay 
@@ -273,6 +281,7 @@ function App() {
             onRemoveCube={removeCube} 
             onAddWindow={addWindow}
             onRemoveWindow={removeWindow}
+            onToggleRoof={toggleRoof}
           />
           <Environment preset="city" />
           <ContactShadows position={[0, -0.01, 0]} opacity={0.6} scale={25} blur={2} far={4} color="#000000" />
