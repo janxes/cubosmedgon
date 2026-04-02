@@ -43,23 +43,45 @@ function UnifiedRoofMesh({ roof }: { roof: UnifiedRoof }) {
     
     const positions: number[] = [];
     const indices: number[] = [];
+    const uvs: number[] = [];
     
     let vertexOffset = 0;
 
     roof.polygons3D.forEach(poly => {
        poly.forEach(pt => {
            positions.push(pt.x * cellSize, pt.y * cellSize, pt.z * cellSize);
+           // Planar mapping for UVs based on local X and Z
+           uvs.push(pt.x * 0.5, pt.z * 0.5);
        });
        
        const n = poly.length;
-       for (let i = 1; i < n - 1; i++) {
-           indices.push(vertexOffset, vertexOffset + i, vertexOffset + i + 1);
+       if (n >= 3) {
+           // Compute normal to check winding order
+           const p0 = new THREE.Vector3(poly[0].x, poly[0].y, poly[0].z);
+           const p1 = new THREE.Vector3(poly[1].x, poly[1].y, poly[1].z);
+           const p2 = new THREE.Vector3(poly[n-1].x, poly[n-1].y, poly[n-1].z);
+           
+           const v1 = new THREE.Vector3().subVectors(p1, p0);
+           const v2 = new THREE.Vector3().subVectors(p2, p0);
+           const normal = new THREE.Vector3().crossVectors(v1, v2);
+           
+           // If the normal points downwards, we need to flip the triangle winding
+           const fixWinding = normal.y < 0;
+
+           for (let i = 1; i < n - 1; i++) {
+               if (fixWinding) {
+                   indices.push(vertexOffset, vertexOffset + i + 1, vertexOffset + i);
+               } else {
+                   indices.push(vertexOffset, vertexOffset + i, vertexOffset + i + 1);
+               }
+           }
        }
        vertexOffset += n;
     });
 
     const geom = new THREE.BufferGeometry();
     geom.setAttribute('position', new THREE.Float32BufferAttribute(positions, 3));
+    geom.setAttribute('uv', new THREE.Float32BufferAttribute(uvs, 2));
     geom.setIndex(indices);
     geom.computeVertexNormals();
 
@@ -72,8 +94,13 @@ function UnifiedRoofMesh({ roof }: { roof: UnifiedRoof }) {
   return (
     <group position={[0, worldY, 0]}>
       <mesh geometry={geometry} castShadow receiveShadow>
-        <meshStandardMaterial color="#475569" roughness={0.8} metalness={0.1} side={THREE.DoubleSide} />
-        <Edges scale={1} threshold={30} color="#334155" />
+        <meshStandardMaterial 
+            color="#334155" 
+            roughness={0.9} 
+            metalness={0.0} 
+            side={THREE.FrontSide} // FrontSide is optimal now that normals are consistent
+        />
+        <Edges scale={1} threshold={30} color="#0f172a" />
       </mesh>
     </group>
   );

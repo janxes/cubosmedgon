@@ -8,6 +8,7 @@ interface SceneProps {
   cubes: CubeModule[];
   activeTool: ToolType;
   activeRot: Rotation3D;
+  activeWindowType: WindowType;
   activeWindowAlign: WindowAlign;
   selectedCubeId: string | null;
   isOccupied: (x: number, y: number, z: number, ignoreId?: string) => boolean;
@@ -18,23 +19,24 @@ interface SceneProps {
   onAddWindow: (id: string, normalStr: string, wType: WindowType, align: WindowAlign) => void;
   onRemoveWindow: (id: string, normalStr: string) => void;
   onToggleRoof: (id: string) => void;
+  snapGrid: 3.0 | 1.5;
 }
 
 export default function Scene({ 
-  cubes, activeTool, activeRot, activeWindowAlign, selectedCubeId, 
+  cubes, activeTool, activeRot, activeWindowType, activeWindowAlign, selectedCubeId, 
   isOccupied, onAddCube, onMoveCube, onSelectCube, onRemoveCube, 
-  onAddWindow, onRemoveWindow, onToggleRoof
+  onAddWindow, onRemoveWindow, onToggleRoof, snapGrid
 }: SceneProps) {
   
   const handlePlaneClick = (e: ThreeEvent<MouseEvent>) => {
     e.stopPropagation();
 
-    const cellX = Math.floor(e.point.x / 0.5);
-    const cellZ = Math.floor(e.point.z / 0.5);
-    
-    // Snap to even multiples to align neatly with defaults
-    const gx = cellX % 2 === 0 ? cellX : cellX - 1;
-    const gz = cellZ % 2 === 0 ? cellZ : cellZ - 1;
+    let gx = Math.floor(e.point.x / 0.5);
+    let gz = Math.floor(e.point.z / 0.5);
+    if (snapGrid === 3.0) {
+      gx = gx % 2 === 0 ? gx : gx - 1;
+      gz = gz % 2 === 0 ? gz : gz - 1;
+    }
     const gy = 0; 
     
     if (activeTool === 'SELECT') {
@@ -81,6 +83,7 @@ export default function Scene({
           cube={cube}
           activeTool={activeTool}
           activeRot={activeRot}
+          activeWindowType={activeWindowType}
           activeWindowAlign={activeWindowAlign}
           selectedCubeId={selectedCubeId}
           selectedBounds={selectedBounds as [number, number, number]}

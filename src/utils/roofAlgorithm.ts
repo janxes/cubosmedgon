@@ -56,29 +56,25 @@ export function generateUnifiedRoofs(cubes: CubeModule[]): UnifiedRoof[] {
 
     // For each Y level, union the cells into polygons
     yGroups.forEach((cells, y) => {
-        // Create 1x1 polygon for each cell
+        // Configuracion de alero (overhang): 0.5 metros
+        const overhangMeters = 0.5; 
+        const overhang = overhangMeters / 1.5; // Convertir a unidades de grid (cada grid unit es 1.5m)
+
+        // Create 1x1 polygon for each cell, expanded by the overhang
         const rects: polygonClipping.Geom[] = cells.map(c => [[
-            [c.x, c.z],
-            [c.x + 1, c.z],
-            [c.x + 1, c.z + 1],
-            [c.x, c.z + 1],
-            [c.x, c.z] // close the ring
+            [c.x - overhang, c.z - overhang],
+            [c.x + 1 + overhang, c.z - overhang],
+            [c.x + 1 + overhang, c.z + 1 + overhang],
+            [c.x - overhang, c.z + 1 + overhang],
+            [c.x - overhang, c.z - overhang] // close the ring
         ]]);
 
         // Union all cell polygons
-        // polygonClipping.union can take multiple single polygons
         const unionResult = polygonClipping.union(rects[0], ...rects.slice(1));
         
-        // unionResult is a MultiPolygon: Array<Polygon>
-        // Polygon is Array<Ring>, Ring is Array<Position>
         unionResult.forEach(poly => {
-            // poly[0] is exterior, poly[1..n] are holes
             try {
-                // straight-skeleton expects GeoJSON-like polygons:
-                // 1. Array of rings (number[][][])
-                // 2. Closed rings (last point == first point)
-                // 3. Outer CCW, inner CW.
-                // polygonClipping natively produces EXACTLY this format!
+                // Formatting for straight-skeleton
                 const formattedPoly = poly.map(ring => ring.map(p => [p[0], p[1]]));
                 
                 const skeleton = SkeletonBuilder.buildFromPolygon(formattedPoly);
@@ -86,14 +82,14 @@ export function generateUnifiedRoofs(cubes: CubeModule[]): UnifiedRoof[] {
                 
                 const pitch = 30 * (Math.PI / 180);
                 
-                // Skeleton returns vertices as [x, y, time] where time === distance to nearest edge
-                // Polygons are arrays of vertex indices.
                 const verts = skeleton.vertices;
                 const polys3D: Roof3DPolygon[] = skeleton.polygons.map((skelPolyIndices: number[]) => {
                     return skelPolyIndices.map(idx => {
                         const v = verts[idx];
-                        // v[0] = x, v[1] = z (2D space map), v[2] = time/distance
-                        const height = v[2] * Math.tan(pitch);
+                        // v[2] is the inward distance from the expanded outer edge.
+                        // We subtract the overhang so the roof height is exactly 0 at the wall line,
+                        // making the eaves (aleros) hang lower (negative height) naturally.
+                        const height = (v[2] - overhang) * Math.tan(pitch);
                         return { x: v[0], y: height, z: v[1] };
                     });
                 });

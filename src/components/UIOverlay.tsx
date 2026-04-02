@@ -1,5 +1,5 @@
-import { Layers, RotateCcw, Download, Square, ArrowUpSquare, ArrowDownSquare, Grid3X3, Building, AlignCenterVertical, Settings2, HandCoins, Box, Sidebar, Maximize, Columns, PanelLeft, Eraser, MousePointerClick, AlignLeft, AlignCenter, AlignRight, Save, FolderOpen, ClipboardCopy, Printer, Undo2, Redo2, GraduationCap } from 'lucide-react';
-import type { Rotation3D, ToolType, WindowAlign, CubeModule } from '../App';
+import { RotateCcw, Download, Square, ArrowUpSquare, ArrowDownSquare, Grid3X3, AlignCenterVertical, Settings2, HandCoins, Box, Sidebar, Maximize, Eraser, MousePointerClick, AlignLeft, AlignCenter, AlignRight, Save, FolderOpen, ClipboardCopy, Printer, Undo2, Redo2, GraduationCap, DoorClosed } from 'lucide-react';
+import type { Rotation3D, ToolType, WindowAlign, WindowType, CubeModule } from '../App';
 import { MODULE_PRICES, WINDOW_PRICES, ROOF_PRICE_PER_MODULE } from '../App';
 import { generateBlueprints } from '../utils/blueprintExporter';
 
@@ -8,9 +8,8 @@ export const TOOLS = [
   { id: 'ERASE', name: 'Borrar', icon: Eraser, desc: 'Elimina pieza o ventana al hacer click' },
   { id: 'A', name: 'Módulo A', icon: Box, desc: 'Estructural 3x3x3m' },
   { id: 'B', name: 'Estrecho B', icon: Sidebar, desc: 'Estructural 1.5x3x3m' },
-  { id: 'W_FULL', name: 'Ventana 100%', icon: Maximize, desc: 'Cristalera de ancho completo' },
-  { id: 'W_HALF', name: 'Ventana 50%', icon: Columns, desc: 'Cristalera a media anchura' },
-  { id: 'W_THIRD', name: 'Ventana 33%', icon: PanelLeft, desc: 'Cristalera a un tercio' },
+  { id: 'WINDOW', name: 'Ventanas', icon: Maximize, desc: 'Herramienta de Ventanas' },
+  { id: 'DOOR', name: 'Puerta', icon: DoorClosed, desc: 'Puerta exterior de 1.20m' },
   { id: 'ROOF', name: 'Tejado', icon: GraduationCap, desc: 'Añadir o quitar tejado a un módulo' },
 ];
 
@@ -38,13 +37,17 @@ interface UIOverlayProps {
   setActiveTool: (t: ToolType) => void;
   activeRot: Rotation3D;
   setActiveRot: (t: Rotation3D) => void;
+  activeWindowType: WindowType;
+  setActiveWindowType: (t: WindowType) => void;
   activeWindowAlign: WindowAlign;
   setActiveWindowAlign: (w: WindowAlign) => void;
   onRotateSelected: () => void;
   hasSelection: boolean;
+  snapGrid: 3.0 | 1.5;
+  setSnapGrid: React.Dispatch<React.SetStateAction<3.0 | 1.5>>;
 }
 
-export default function UIOverlay({ cubes, cubeCount, floors, totalBudget, onReset, undo, redo, canUndo, canRedo, onSave, onLoad, surfaces, activeTool, setActiveTool, activeRot, setActiveRot, activeWindowAlign, setActiveWindowAlign, onRotateSelected, hasSelection }: UIOverlayProps) {
+export default function UIOverlay({ cubes, cubeCount, floors, totalBudget, onReset, undo, redo, canUndo, canRedo, onSave, onLoad, surfaces, activeTool, setActiveTool, activeRot, setActiveRot, activeWindowType, setActiveWindowType, activeWindowAlign, setActiveWindowAlign, onRotateSelected, hasSelection, snapGrid, setSnapGrid }: UIOverlayProps) {
   const formattedBudget = new Intl.NumberFormat('es-ES', { style: 'currency', currency: 'EUR', maximumFractionDigits: 0 }).format(totalBudget);
 
   const handleExport = () => {
@@ -57,7 +60,7 @@ export default function UIOverlay({ cubes, cubeCount, floors, totalBudget, onRes
   };
 
   const handleCopyExcel = () => {
-    let countA = 0, countB = 0, wFull = 0, wHalf = 0, wThird = 0, roofs = 0;
+    let countA = 0, countB = 0, w300 = 0, w150 = 0, w100 = 0, doors = 0, roofs = 0;
 
     cubes.forEach(c => {
       if (c.id === 'initial' && Object.keys(c.windows || {}).length === 0 && cubes.length === 1) return;
@@ -66,9 +69,10 @@ export default function UIOverlay({ cubes, cubeCount, floors, totalBudget, onRes
       if (c.hasRoof) roofs++;
       if (c.windows) {
         Object.values(c.windows).forEach(w => {
-          if (w.type === 'full') wFull++;
-          if (w.type === 'half') wHalf++;
-          if (w.type === 'third') wThird++;
+          if (w.type === 'w300') w300++;
+          if (w.type === 'w150') w150++;
+          if (w.type === 'w100') w100++;
+          if (w.type === 'door') doors++;
         });
       }
     });
@@ -82,9 +86,10 @@ export default function UIOverlay({ cubes, cubeCount, floors, totalBudget, onRes
     if (countA > 0) lines.push(['Módulo Estructural A (3x3x3)', countA.toString(), `${MODULE_PRICES['A']} €`, `${countA * MODULE_PRICES['A']} €`]);
     if (countB > 0) lines.push(['Módulo Estrecho B (1.5x3x3)', countB.toString(), `${MODULE_PRICES['B']} €`, `${countB * MODULE_PRICES['B']} €`]);
     if (roofs > 0) lines.push(['Tejado Inclinado a 2 Aguas (por módulo)', roofs.toString(), `${ROOF_PRICE_PER_MODULE} €`, `${roofs * ROOF_PRICE_PER_MODULE} €`]);
-    if (wFull > 0) lines.push(['Ventana Panorámica 100%', wFull.toString(), `${WINDOW_PRICES['full']} €`, `${wFull * WINDOW_PRICES['full']} €`]);
-    if (wHalf > 0) lines.push(['Ventana Media 50%', wHalf.toString(), `${WINDOW_PRICES['half']} €`, `${wHalf * WINDOW_PRICES['half']} €`]);
-    if (wThird > 0) lines.push(['Ventana Tercio 33%', wThird.toString(), `${WINDOW_PRICES['third']} €`, `${wThird * WINDOW_PRICES['third']} €`]);
+    if (w300 > 0) lines.push(['Ventana Grande 3.0x2.10m', w300.toString(), `${WINDOW_PRICES['w300']} €`, `${w300 * WINDOW_PRICES['w300']} €`]);
+    if (w150 > 0) lines.push(['Ventana Mediana 1.5x2.10m', w150.toString(), `${WINDOW_PRICES['w150']} €`, `${w150 * WINDOW_PRICES['w150']} €`]);
+    if (w100 > 0) lines.push(['Ventana Pequeña 1.0x2.10m', w100.toString(), `${WINDOW_PRICES['w100']} €`, `${w100 * WINDOW_PRICES['w100']} €`]);
+    if (doors > 0) lines.push(['Puerta Exterior 1.20m', doors.toString(), `${WINDOW_PRICES['door']} €`, `${doors * WINDOW_PRICES['door']} €`]);
     
     lines.push([]);
     lines.push(['SUPERFICIES ESTIMADAS']);
@@ -116,20 +121,20 @@ export default function UIOverlay({ cubes, cubeCount, floors, totalBudget, onRes
     }
   };
 
-  const isWindowTool = activeTool === 'W_HALF' || activeTool === 'W_THIRD';
+
 
   return (
     <aside className="order-2 md:order-1 w-full md:w-[35vw] lg:w-[30vw] flex-shrink-0 h-1/2 md:h-full bg-[#0a0f1d] flex flex-col justify-between p-6 md:p-8 z-10 overflow-y-auto shadow-2xl space-y-8">
       
-      <div className="flex flex-col gap-8">
-        <div className="bg-white p-4 rounded-xl flex items-center justify-center shadow-lg w-full h-24">
-          <img src="/logo.png" alt="Medgón Passivhaus" className="w-[150px] object-contain" onError={(e) => { e.currentTarget.style.display = 'none'; }} />
+      <div className="flex items-center gap-4 bg-white/5 p-4 rounded-xl border border-white/10">
+        <div className="bg-white p-2 rounded-lg flex items-center justify-center shrink-0">
+          <img src="/logo.png" alt="Medgón Passivhaus" className="w-[100px] object-contain" onError={(e) => { e.currentTarget.style.display = 'none'; }} />
         </div>
-        <div>
-          <h1 className="text-4xl lg:text-5xl font-bold text-white m-0 leading-tight tracking-wide">
-            Viviendas <span className="text-gradient">Modulares</span>
+        <div className="flex flex-col">
+          <h1 className="text-2xl lg:text-3xl font-semibold text-white m-0 leading-none tracking-tighter">
+            Configurador <span className="text-gradient">Modular</span>
           </h1>
-          <p className="text-gray-400 text-base lg:text-lg m-0 mt-3 font-medium tracking-wide">Desarrollo Creativo 3D</p>
+          <p className="text-amber-400/80 text-[11px] mt-1.5 font-medium tracking-tight uppercase">Desarrollo Creativo 3D</p>
         </div>
       </div>
 
@@ -138,20 +143,37 @@ export default function UIOverlay({ cubes, cubeCount, floors, totalBudget, onRes
           <Settings2 size={18} /> Herramientas
         </p>
 
-        <div className="grid grid-cols-3 gap-2 mb-4">
+        <div className="grid grid-cols-4 gap-2 mb-4">
            <button onClick={undo} disabled={!canUndo} className={`btn py-2 flex flex-col items-center gap-1 text-[10px] bg-white/10 hover:bg-white/20 justify-center font-bold tracking-wider rounded-lg border border-white/10 ${!canUndo ? 'opacity-30 cursor-not-allowed' : ''}`} title="Deshacer"><Undo2 size={18} /> DESHACER</button>
            <button onClick={redo} disabled={!canRedo} className={`btn py-2 flex flex-col items-center gap-1 text-[10px] bg-white/10 hover:bg-white/20 justify-center font-bold tracking-wider rounded-lg border border-white/10 ${!canRedo ? 'opacity-30 cursor-not-allowed' : ''}`} title="Rehacer"><Redo2 size={18} /> REHACER</button>
            <button onClick={handleRotate} className="btn py-2 flex flex-col items-center gap-1 text-[10px] bg-white/10 hover:bg-white/20 justify-center font-bold tracking-wider rounded-lg border border-white/10" title={activeTool === 'SELECT' ? "Rotar Módulo Seleccionado" : "Rotar Nueva Pieza"}>
               <RotateCcw size={18} /> GIRAR
            </button>
+           <button onClick={() => setSnapGrid(s => s === 3.0 ? 1.5 : 3.0)} className={`btn py-2 flex flex-col items-center gap-1 text-[10px] justify-center font-bold tracking-wider rounded-lg border border-white/10 transition-colors ${snapGrid === 1.5 ? 'bg-amber-500/20 text-amber-400 border-amber-500/50' : 'bg-white/10 hover:bg-white/20 text-white'}`} title="Alternar encaje a rejilla de 3m o 1.5m">
+              <Grid3X3 size={18} /> {snapGrid === 3.0 ? 'GRID 3x3' : 'GRID 1.5'}
+           </button>
         </div>
         
-        {isWindowTool && (
-          <div className="flex bg-[#0f172a] rounded-lg p-1 mb-4 border border-white/10">
-            <button onClick={() => setActiveWindowAlign('left')} className={`flex-1 py-1.5 flex justify-center rounded-md ${activeWindowAlign === 'left' ? 'bg-amber-500 text-white' : 'text-gray-400 hover:text-white'}`}><AlignLeft size={16} /></button>
-            <button onClick={() => setActiveWindowAlign('center')} className={`flex-1 py-1.5 flex justify-center rounded-md ${activeWindowAlign === 'center' ? 'bg-amber-500 text-white' : 'text-gray-400 hover:text-white'}`}><AlignCenter size={16} /></button>
-            <button onClick={() => setActiveWindowAlign('right')} className={`flex-1 py-1.5 flex justify-center rounded-md ${activeWindowAlign === 'right' ? 'bg-amber-500 text-white' : 'text-gray-400 hover:text-white'}`}><AlignRight size={16} /></button>
-          </div>
+        {activeTool === 'WINDOW' && (
+          <>
+            <p className="text-gray-400 text-[10px] mb-1 font-bold uppercase tracking-widest text-center">Tamaño de Ventana</p>
+            <div className="flex bg-[#0f172a] rounded-lg p-1 mb-2 border border-white/10">
+              <button onClick={() => setActiveWindowType('w300')} className={`flex-1 py-1.5 flex justify-center rounded-md font-bold text-xs ${activeWindowType === 'w300' ? 'bg-amber-500 text-white' : 'text-gray-400 hover:text-white'}`}>3.0m</button>
+              <button onClick={() => setActiveWindowType('w150')} className={`flex-1 py-1.5 flex justify-center rounded-md font-bold text-xs ${activeWindowType === 'w150' ? 'bg-amber-500 text-white' : 'text-gray-400 hover:text-white'}`}>1.5m</button>
+              <button onClick={() => setActiveWindowType('w100')} className={`flex-1 py-1.5 flex justify-center rounded-md font-bold text-xs ${activeWindowType === 'w100' ? 'bg-amber-500 text-white' : 'text-gray-400 hover:text-white'}`}>1.0m</button>
+            </div>
+          </>
+        )}
+        
+        {(activeTool === 'WINDOW' || activeTool === 'DOOR') && (
+          <>
+            <p className="text-gray-400 text-[10px] mb-1 font-bold uppercase tracking-widest text-center">Alineación</p>
+            <div className="flex bg-[#0f172a] rounded-lg p-1 mb-4 border border-white/10">
+              <button onClick={() => setActiveWindowAlign('left')} className={`flex-1 py-1.5 flex justify-center rounded-md ${activeWindowAlign === 'left' ? 'bg-amber-500 text-white' : 'text-gray-400 hover:text-white'}`}><AlignLeft size={16} /></button>
+              <button onClick={() => setActiveWindowAlign('center')} className={`flex-1 py-1.5 flex justify-center rounded-md ${activeWindowAlign === 'center' ? 'bg-amber-500 text-white' : 'text-gray-400 hover:text-white'}`}><AlignCenter size={16} /></button>
+              <button onClick={() => setActiveWindowAlign('right')} className={`flex-1 py-1.5 flex justify-center rounded-md ${activeWindowAlign === 'right' ? 'bg-amber-500 text-white' : 'text-gray-400 hover:text-white'}`}><AlignRight size={16} /></button>
+            </div>
+          </>
         )}
 
         <div className="grid grid-cols-4 gap-2">
@@ -180,65 +202,54 @@ export default function UIOverlay({ cubes, cubeCount, floors, totalBudget, onRes
         </p>
       </div>
 
-      <div className="flex flex-col gap-6">
-        <div className="grid grid-cols-2 gap-4">
-          <div className="glass-panel p-5 border-l-4 border-l-indigo-500">
-            <p className="text-indigo-400 text-sm uppercase tracking-widest font-bold mb-3">Módulos</p>
-            <div className="flex items-center gap-3">
-              <Layers size={28} className="text-white" />
-              <div className="text-3xl lg:text-4xl font-bold text-white stat-value">{cubeCount}</div>
-            </div>
+      <div className="glass-panel p-5 border-l-4 border-l-sky-500 flex flex-col gap-4">
+        <p className="text-sky-400 text-sm uppercase tracking-widest font-bold flex items-center gap-2">
+          <ClipboardCopy size={18} /> Datos del Proyecto
+        </p>
+
+        <div className="grid grid-cols-2 lg:grid-cols-4 gap-2">
+          <div className="bg-white/5 rounded-lg p-3 text-center border border-white/5">
+            <div className="text-gray-400 text-[10px] uppercase font-bold tracking-wider mb-1">Módulos</div>
+            <div className="text-xl font-bold text-white leading-none">{cubeCount}</div>
           </div>
-          <div className="glass-panel p-5 border-l-4 border-l-purple-500">
-            <p className="text-purple-400 text-sm uppercase tracking-widest font-bold mb-3">Plantas</p>
-            <div className="flex items-center gap-3">
-              <Building size={28} className="text-white" />
-              <div className="text-3xl lg:text-4xl font-bold text-white stat-value">{floors}</div>
-            </div>
+          <div className="bg-white/5 rounded-lg p-3 text-center border border-white/5">
+            <div className="text-gray-400 text-[10px] uppercase font-bold tracking-wider mb-1">Plantas</div>
+            <div className="text-xl font-bold text-white leading-none">{floors}</div>
+          </div>
+          <div className="bg-white/5 rounded-lg p-3 text-center border border-emerald-500/20 col-span-2 relative overflow-hidden">
+            <HandCoins size={24} className="absolute right-2 top-2 text-emerald-500/10 pointer-events-none" />
+            <div className="text-emerald-400/80 text-[10px] uppercase font-bold tracking-wider mb-1">Presupuesto</div>
+            <div className="text-xl font-bold text-emerald-400 leading-none">{formattedBudget}</div>
           </div>
         </div>
 
-        <div className="glass-panel p-6 border-l-4 border-l-sky-500 flex flex-col gap-4">
-          <p className="text-sky-400 text-base uppercase tracking-widest font-bold mb-1">Superficies Estimadas</p>
-          <div className="grid grid-cols-2 gap-4">
+        <div className="bg-white/5 rounded-lg p-4 border border-white/5">
+          <div className="text-gray-400 text-[10px] uppercase font-bold tracking-widest mb-3 border-b border-white/10 pb-2 flex justify-between">
+            <span>Superficies Estimadas</span>
+            <span className="text-emerald-400">Útil: {surfaces.utilArea} m²</span>
+          </div>
+          <div className="grid grid-cols-3 gap-y-3 gap-x-2">
             <div>
-              <div className="flex items-center gap-2 text-gray-400 text-sm mb-1 uppercase"><ArrowUpSquare size={16}/> Cubierta</div>
-              <div className="text-xl font-bold text-white">{surfaces.roofArea} m²</div>
+              <div className="flex items-center gap-1 text-gray-300 text-[9px] uppercase"><ArrowUpSquare size={12}/> Cubierta</div>
+              <div className="text-sm font-bold text-white mt-0.5">{surfaces.roofArea} m²</div>
             </div>
             <div>
-              <div className="flex items-center gap-2 text-gray-400 text-sm mb-1 uppercase"><ArrowDownSquare size={16}/> Cimentación</div>
-              <div className="text-xl font-bold text-white">{surfaces.floorArea} m²</div>
+              <div className="flex items-center gap-1 text-gray-300 text-[9px] uppercase"><ArrowDownSquare size={12}/> Cimentación</div>
+              <div className="text-sm font-bold text-white mt-0.5">{surfaces.floorArea} m²</div>
+            </div>
+            <div>
+              <div className="flex items-center gap-1 text-gray-300 text-[9px] uppercase"><AlignCenterVertical size={12}/> Forjados</div>
+              <div className="text-sm font-bold text-white mt-0.5">{surfaces.slabArea} m²</div>
+            </div>
+            <div>
+              <div className="flex items-center gap-1 text-gray-300 text-[9px] uppercase"><Square size={12}/> Muros Ext.</div>
+              <div className="text-sm font-bold text-white mt-0.5">{surfaces.wallArea} m²</div>
+            </div>
+            <div className="col-span-2">
+              <div className="flex items-center gap-1 text-sky-400/80 text-[9px] uppercase"><Grid3X3 size={12}/> Total Envolvente</div>
+              <div className="text-sm font-bold text-sky-300 mt-0.5">{surfaces.totalArea} m²</div>
             </div>
           </div>
-          <div className="grid grid-cols-2 gap-4 border-t border-white/10 pt-4">
-            <div>
-              <div className="flex items-center gap-2 text-gray-400 text-sm mb-1 uppercase"><AlignCenterVertical size={16}/> Forjados</div>
-              <div className="text-xl font-bold text-white">{surfaces.slabArea} m²</div>
-            </div>
-            <div>
-              <div className="flex items-center gap-2 text-gray-400 text-sm mb-1 uppercase"><Square size={16}/> Muros Ext.</div>
-              <div className="text-xl font-bold text-white">{surfaces.wallArea} m²</div>
-            </div>
-          </div>
-          <div className="border-t border-white/10 pt-4 flex justify-between">
-            <div>
-              <div className="flex items-center gap-2 text-emerald-400 text-sm mb-1 uppercase"><Square size={16}/> Superficie Útil</div>
-              <div className="text-3xl lg:text-4xl font-bold text-white stat-value">{surfaces.utilArea} m²</div>
-            </div>
-            <div className="text-right">
-              <div className="flex items-center gap-2 text-sky-400 text-sm mb-1 uppercase justify-end"><Grid3X3 size={16}/> Suma Áreas</div>
-              <div className="text-2xl font-bold text-white stat-value mt-2">{surfaces.totalArea} m²</div>
-            </div>
-          </div>
-        </div>
-
-        <div className="glass-panel p-6 border-l-4 border-l-emerald-500 relative overflow-hidden">
-          <HandCoins size={120} className="absolute -right-6 -bottom-6 text-emerald-500/10 pointer-events-none" />
-          <p className="text-emerald-400 text-sm uppercase tracking-widest font-bold mb-3">Presupuesto Estimado</p>
-          <div className="text-4xl lg:text-5xl font-bold text-white stat-value text-gradient mb-1 relative z-10">{formattedBudget}</div>
-          <p className="text-gray-400 text-xs mt-3 uppercase font-semibold relative z-10 text-center xl:text-left">
-            A: 15k | B: 7.5k | VENTANAS: 5k/3k/2k | TEJADO: 5k
-          </p>
         </div>
       </div>
 

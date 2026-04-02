@@ -5,12 +5,12 @@ import Scene from './components/Scene';
 import UIOverlay from './components/UIOverlay';
 
 export type Rotation3D = [number, number, number]; // Euler degrees 0, 90, 180, 270
-export type WindowType = 'full' | 'half' | 'third';
+export type WindowType = 'w300' | 'w150' | 'w100' | 'door';
 export type WindowAlign = 'left' | 'center' | 'right';
 export type WindowData = { type: WindowType, align: WindowAlign };
 export type WindowsMap = Record<string, WindowData>;
 export type ModuleType = 'A' | 'B';
-export type ToolType = 'SELECT' | 'A' | 'B' | 'W_FULL' | 'W_HALF' | 'W_THIRD' | 'ERASE' | 'ROOF';
+export type ToolType = 'SELECT' | 'A' | 'B' | 'WINDOW' | 'DOOR' | 'ERASE' | 'ROOF';
 
 export type CubeModule = {
   id: string;
@@ -30,9 +30,10 @@ export const MODULE_PRICES: Record<ModuleType, number> = {
 export const ROOF_PRICE_PER_MODULE = 5000;
 
 export const WINDOW_PRICES: Record<WindowType, number> = {
-  'full': 5000,
-  'half': 3000,
-  'third': 2000,
+  'w300': 5000,
+  'w150': 3000,
+  'w100': 2000,
+  'door': 2000,
 };
 
 export const getGridBounds = (type: ModuleType, rot: Rotation3D): [number, number, number] => {
@@ -46,8 +47,10 @@ export const getGridBounds = (type: ModuleType, rot: Rotation3D): [number, numbe
 function App() {
   const [activeTool, setActiveTool] = useState<ToolType>('A');
   const [activeRot, setActiveRot] = useState<Rotation3D>([0, 0, 0]);
+  const [activeWindowType, setActiveWindowType] = useState<WindowType>('w150');
   const [activeWindowAlign, setActiveWindowAlign] = useState<WindowAlign>('center');
   const [selectedCubeId, setSelectedCubeId] = useState<string | null>(null);
+  const [snapGrid, setSnapGrid] = useState<3.0 | 1.5>(3.0);
 
   const [history, setHistory] = useState<CubeModule[][]>([
     [{ id: 'initial', pos: [0, 0, 0], type: 'A', rot: [0, 0, 0], windows: {} }]
@@ -250,10 +253,14 @@ function App() {
         setActiveTool={setActiveTool}
         activeRot={activeRot}
         setActiveRot={setActiveRot}
+        activeWindowType={activeWindowType}
+        setActiveWindowType={setActiveWindowType}
         activeWindowAlign={activeWindowAlign}
         setActiveWindowAlign={setActiveWindowAlign}
         onRotateSelected={rotateSelectedCube}
         hasSelection={!!selectedCubeId}
+        snapGrid={snapGrid}
+        setSnapGrid={setSnapGrid}
       />
       <main className="order-1 md:order-2 flex-1 relative min-h-[45vh] md:min-h-full h-full border-b md:border-b-0 md:border-l border-slate-700/50 bg-slate-900 shadow-2xl">
         <Canvas 
@@ -272,6 +279,7 @@ function App() {
             cubes={cubes} 
             activeTool={activeTool}
             activeRot={activeRot}
+            activeWindowType={activeWindowType}
             activeWindowAlign={activeWindowAlign}
             selectedCubeId={selectedCubeId}
             isOccupied={isOccupied}
@@ -282,6 +290,7 @@ function App() {
             onAddWindow={addWindow}
             onRemoveWindow={removeWindow}
             onToggleRoof={toggleRoof}
+            snapGrid={snapGrid}
           />
           <Environment preset="city" />
           <ContactShadows position={[0, -0.01, 0]} opacity={0.6} scale={25} blur={2} far={4} color="#000000" />

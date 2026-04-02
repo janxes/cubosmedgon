@@ -24,7 +24,7 @@ export async function generateBlueprints(cubes: CubeModule[], userViewDataUrl: s
   dirLight.position.set(10, 20, 10);
   scene.add(dirLight);
 
-  let countA = 0, countB = 0, wFull = 0, wHalf = 0, wThird = 0, roofs = 0;
+  let countA = 0, countB = 0, w300 = 0, w150 = 0, w100 = 0, roofs = 0;
 
   cubes.forEach(cube => {
     if (cube.id === 'initial' && Object.keys(cube.windows).length === 0 && cubes.length === 1) return;
@@ -34,9 +34,9 @@ export async function generateBlueprints(cubes: CubeModule[], userViewDataUrl: s
     if (cube.hasRoof) roofs++;
     if (cube.windows) {
       Object.values(cube.windows).forEach(w => {
-        if (w.type === 'full') wFull++;
-        if (w.type === 'half') wHalf++;
-        if (w.type === 'third') wThird++;
+        if (w.type === 'w300') w300++;
+        if (w.type === 'w150') w150++;
+        if (w.type === 'w100') w100++;
       });
     }
 
@@ -75,9 +75,9 @@ export async function generateBlueprints(cubes: CubeModule[], userViewDataUrl: s
           if (nz === 1) rotY = 0;
           if (nz === -1) rotY = Math.PI;
 
-          const wMultiplier = wData.type === 'full' ? 0.95 : wData.type === 'half' ? 0.50 : 0.33;
+          const wMultiplier = wData.type === 'door' ? 0.4 : (wData.type === 'w300' ? 0.95 : (wData.type === 'w150' ? 0.50 : 0.33));
           let planeW = wMultiplier;
-          let planeH = args[1] * 0.75;
+          let planeH = args[1] * 0.70; // All windows and doors are 2.10m high (0.7)
           let localFaceWidth = 1;
 
           if (nx !== 0) { planeW *= args[2]; localFaceWidth = args[2]; } 
@@ -87,6 +87,10 @@ export async function generateBlueprints(cubes: CubeModule[], userViewDataUrl: s
           let px = nx * (args[0] / 2 + 0.001);
           let py = ny * (args[1] / 2 + 0.001);
           let pz = nz * (args[2] / 2 + 0.001);
+
+          if (ny === 0) {
+             py = -args[1] / 2 + planeH / 2 + 0.005;
+          }
 
           if (wData.align === 'left' || wData.align === 'right') {
              const gap = localFaceWidth - planeW;
@@ -235,9 +239,9 @@ export async function generateBlueprints(cubes: CubeModule[], userViewDataUrl: s
   drawRow('Módulo Estructural A (3x3x3)', countA, MODULE_PRICES['A']);
   drawRow('Módulo Estrecho B (1.5x3x3)', countB, MODULE_PRICES['B']);
   drawRow('Tejado Inclinado a 2 Aguas', roofs, ROOF_PRICE_PER_MODULE);
-  drawRow('Ventana Panorámica 100%', wFull, WINDOW_PRICES['full']);
-  drawRow('Ventana Media 50%', wHalf, WINDOW_PRICES['half']);
-  drawRow('Ventana Tercio 33%', wThird, WINDOW_PRICES['third']);
+  drawRow('Ventana Grande 3.0x2.10m', w300, WINDOW_PRICES['w300']);
+  drawRow('Ventana Mediana 1.5x2.10m', w150, WINDOW_PRICES['w150']);
+  drawRow('Ventana Pequeña 1.0x2.10m', w100, WINDOW_PRICES['w100']);
 
   y += 5;
   pdf.setDrawColor(226, 232, 240);

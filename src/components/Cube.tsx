@@ -9,6 +9,7 @@ interface CubeProps {
   cube: CubeModule;
   activeTool: ToolType;
   activeRot: Rotation3D;
+  activeWindowType: WindowType;
   activeWindowAlign: WindowAlign;
   selectedCubeId: string | null;
   selectedBounds: [number, number, number];
@@ -22,7 +23,7 @@ interface CubeProps {
   onToggleRoof: (id: string) => void;
 }
 
-export default function Cube({ cube, activeTool, activeRot, activeWindowAlign, selectedCubeId, selectedBounds, isOccupied, onAddCube, onMoveCube, onSelectCube, onRemoveCube, onAddWindow, onRemoveWindow, onToggleRoof }: CubeProps) {
+export default function Cube({ cube, activeTool, activeRot, activeWindowType, activeWindowAlign, selectedCubeId, selectedBounds, isOccupied, onAddCube, onMoveCube, onSelectCube, onRemoveCube, onAddWindow, onRemoveWindow, onToggleRoof }: CubeProps) {
   const [hovered, setHovered] = useState(false);
   const isSelected = cube.id === selectedCubeId;
 
@@ -87,8 +88,8 @@ export default function Cube({ cube, activeTool, activeRot, activeWindowAlign, s
       return;
     }
 
-    if (activeTool.startsWith('W_')) {
-      const wType = activeTool.split('_')[1].toLowerCase() as WindowType;
+    if (activeTool === 'WINDOW' || activeTool === 'DOOR') {
+      const wType = activeTool === 'DOOR' ? 'door' : activeWindowType;
       onAddWindow(cube.id, normalStr, wType, activeWindowAlign);
       return;
     }
@@ -169,20 +170,27 @@ export default function Cube({ cube, activeTool, activeRot, activeWindowAlign, s
         if (nz === 1) rotY = 0;
         if (nz === -1) rotY = Math.PI;
 
-        const wMultiplier = wData.type === 'full' ? 0.95 : wData.type === 'half' ? 0.50 : 0.33;
-        
-        let planeW = wMultiplier;
-        let planeH = args[1] * 0.75;
+        let absoluteW = wData.type === 'door' ? 0.4 : (wData.type === 'w300' ? 0.95 : (wData.type === 'w150' ? 0.5 : 0.333)); // 0.95=casi 3.0m, 0.5=1.5m, 0.333=1.0m
+        let absoluteH = 0.7; // 2.10m / 3.0m
+
+        let planeW = absoluteW;
+        let planeH = absoluteH;
 
         let localFaceWidth = 1;
 
-        if (nx !== 0) { planeW *= args[2]; localFaceWidth = args[2]; } 
-        else if (nz !== 0) { planeW *= args[0]; localFaceWidth = args[0]; } 
-        else if (ny !== 0) { planeW *= args[0]; planeH = args[2] * 0.75; localFaceWidth = args[0]; } 
+        if (nx !== 0) { localFaceWidth = args[2]; } 
+        else if (nz !== 0) { localFaceWidth = args[0]; } 
+        else if (ny !== 0) { localFaceWidth = args[0]; }  
 
         let px = nx * (args[0] / 2 + 0.001);
         let py = ny * (args[1] / 2 + 0.001);
         let pz = nz * (args[2] / 2 + 0.001);
+
+        // Tanto puertas como ventanas de 2.10m van apoyadas en el suelo (a ras de forjado)
+        // ny === 0 significa que están en una pared
+        if (ny === 0) {
+           py = -args[1] / 2 + planeH / 2 + 0.005; // 0.005 para evitar Z-fighting con el suelo
+        }
 
         if (wData.align === 'left' || wData.align === 'right') {
            const gap = localFaceWidth - planeW;
@@ -204,7 +212,7 @@ export default function Cube({ cube, activeTool, activeRot, activeWindowAlign, s
             onPointerOver={(e) => { if(activeTool === 'ERASE'){ e.stopPropagation(); setHovered(true); }}}
           >
             <planeGeometry args={[planeW, planeH]} />
-            <meshStandardMaterial color={hovered && activeTool === 'ERASE' ? '#ef4444' : '#0ea5e9'} roughness={0.1} metalness={0.9} transparent opacity={0.7} side={THREE.DoubleSide} />
+            <meshStandardMaterial color={hovered && activeTool === 'ERASE' ? '#ef4444' : wData.type === 'door' ? '#f59e0b' : '#0ea5e9'} roughness={wData.type === 'door' ? 0.8 : 0.1} metalness={wData.type === 'door' ? 0.1 : 0.9} transparent={wData.type !== 'door'} opacity={wData.type === 'door' ? 1 : 0.7} side={THREE.DoubleSide} />
           </mesh>
         );
       })}
