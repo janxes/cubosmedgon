@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import type { ThreeEvent } from '@react-three/fiber';
 import { Edges } from '@react-three/drei';
-import type { CubeModule, Rotation3D, ToolType, ModuleType, WindowType, WindowAlign } from '../App';
+import type { CubeModule, Rotation3D, ToolType, ModuleType, WindowType, WindowAlign, RoofType } from '../App';
 import { getGridBounds } from '../App';
 import * as THREE from 'three';
 
@@ -11,6 +11,7 @@ interface CubeProps {
   activeRot: Rotation3D;
   activeWindowType: WindowType;
   activeWindowAlign: WindowAlign;
+  activeRoofType: RoofType;
   selectedCubeId: string | null;
   selectedBounds: [number, number, number];
   isOccupied: (x: number, y: number, z: number, ignoreId?: string) => boolean;
@@ -20,10 +21,10 @@ interface CubeProps {
   onRemoveCube: (id: string) => void;
   onAddWindow: (id: string, normalStr: string, wType: WindowType, align: WindowAlign) => void;
   onRemoveWindow: (id: string, normalStr: string) => void;
-  onToggleRoof: (id: string) => void;
+  onToggleRoof: (id: string, rType: RoofType) => void;
 }
 
-export default function Cube({ cube, activeTool, activeRot, activeWindowType, activeWindowAlign, selectedCubeId, selectedBounds, isOccupied, onAddCube, onMoveCube, onSelectCube, onRemoveCube, onAddWindow, onRemoveWindow, onToggleRoof }: CubeProps) {
+export default function Cube({ cube, activeTool, activeRot, activeWindowType, activeWindowAlign, activeRoofType, selectedCubeId, selectedBounds, isOccupied, onAddCube, onMoveCube, onSelectCube, onRemoveCube, onAddWindow, onRemoveWindow, onToggleRoof }: CubeProps) {
   const [hovered, setHovered] = useState(false);
   const isSelected = cube.id === selectedCubeId;
 
@@ -73,9 +74,7 @@ export default function Cube({ cube, activeTool, activeRot, activeWindowType, ac
     }
 
     if (activeTool === 'ROOF') {
-      // Toggle roof logic only happens if we click the TOP face (normal.y > 0) or any face?
-      // Roofs apply to the whole cube, so clicking any face with the roof tool is enough.
-      onToggleRoof(cube.id);
+      onToggleRoof(cube.id, activeRoofType);
       return;
     }
 

@@ -1,5 +1,5 @@
 import { RotateCcw, Download, Square, ArrowUpSquare, ArrowDownSquare, Grid3X3, AlignCenterVertical, Settings2, HandCoins, Box, Sidebar, Maximize, Eraser, MousePointerClick, AlignLeft, AlignCenter, AlignRight, Save, FolderOpen, ClipboardCopy, Printer, Undo2, Redo2, GraduationCap, DoorClosed } from 'lucide-react';
-import type { Rotation3D, ToolType, WindowAlign, WindowType, CubeModule } from '../App';
+import type { Rotation3D, ToolType, WindowAlign, WindowType, RoofType, CubeModule } from '../App';
 import { MODULE_PRICES, WINDOW_PRICES, ROOF_PRICE_PER_MODULE } from '../App';
 import { generateBlueprints } from '../utils/blueprintExporter';
 
@@ -41,13 +41,15 @@ interface UIOverlayProps {
   setActiveWindowType: (t: WindowType) => void;
   activeWindowAlign: WindowAlign;
   setActiveWindowAlign: (w: WindowAlign) => void;
+  activeRoofType: RoofType;
+  setActiveRoofType: (r: RoofType) => void;
   onRotateSelected: () => void;
   hasSelection: boolean;
   snapGrid: 3.0 | 1.5;
   setSnapGrid: React.Dispatch<React.SetStateAction<3.0 | 1.5>>;
 }
 
-export default function UIOverlay({ cubes, cubeCount, floors, totalBudget, onReset, undo, redo, canUndo, canRedo, onSave, onLoad, surfaces, activeTool, setActiveTool, activeRot, setActiveRot, activeWindowType, setActiveWindowType, activeWindowAlign, setActiveWindowAlign, onRotateSelected, hasSelection, snapGrid, setSnapGrid }: UIOverlayProps) {
+export default function UIOverlay({ cubes, cubeCount, floors, totalBudget, onReset, undo, redo, canUndo, canRedo, onSave, onLoad, surfaces, activeTool, setActiveTool, activeRot, setActiveRot, activeWindowType, setActiveWindowType, activeWindowAlign, setActiveWindowAlign, activeRoofType, setActiveRoofType, onRotateSelected, hasSelection, snapGrid, setSnapGrid }: UIOverlayProps) {
   const formattedBudget = new Intl.NumberFormat('es-ES', { style: 'currency', currency: 'EUR', maximumFractionDigits: 0 }).format(totalBudget);
 
   const handleExport = () => {
@@ -66,7 +68,7 @@ export default function UIOverlay({ cubes, cubeCount, floors, totalBudget, onRes
       if (c.id === 'initial' && Object.keys(c.windows || {}).length === 0 && cubes.length === 1) return;
       if (c.type === 'A') countA++;
       if (c.type === 'B') countB++;
-      if (c.hasRoof) roofs++;
+      if (c.roofType && c.roofType !== 'none') roofs++;
       if (c.windows) {
         Object.values(c.windows).forEach(w => {
           if (w.type === 'w300') w300++;
@@ -172,6 +174,29 @@ export default function UIOverlay({ cubes, cubeCount, floors, totalBudget, onRes
               <button onClick={() => setActiveWindowAlign('left')} className={`flex-1 py-1.5 flex justify-center rounded-md ${activeWindowAlign === 'left' ? 'bg-amber-500 text-white' : 'text-gray-400 hover:text-white'}`}><AlignLeft size={16} /></button>
               <button onClick={() => setActiveWindowAlign('center')} className={`flex-1 py-1.5 flex justify-center rounded-md ${activeWindowAlign === 'center' ? 'bg-amber-500 text-white' : 'text-gray-400 hover:text-white'}`}><AlignCenter size={16} /></button>
               <button onClick={() => setActiveWindowAlign('right')} className={`flex-1 py-1.5 flex justify-center rounded-md ${activeWindowAlign === 'right' ? 'bg-amber-500 text-white' : 'text-gray-400 hover:text-white'}`}><AlignRight size={16} /></button>
+            </div>
+          </>
+        )}
+
+        {activeTool === 'ROOF' && (
+          <>
+            <p className="text-gray-400 text-[10px] mb-1 font-bold uppercase tracking-widest text-center">Tipo de Cubierta</p>
+            <div className="flex flex-col bg-[#0f172a] rounded-lg p-1 border border-white/10 space-y-1">
+              <button 
+                onClick={() => setActiveRoofType('hip')} 
+                className={`w-full py-1.5 flex justify-center rounded-md font-bold text-xs ${activeRoofType === 'hip' ? 'bg-amber-500 text-white' : 'text-gray-400 hover:text-white'}`}
+              >A 4 Aguas</button>
+              <button 
+                onClick={() => setActiveRoofType('gable')} 
+                className={`w-full py-1.5 flex justify-center rounded-md font-bold text-xs ${activeRoofType === 'gable' ? 'bg-amber-500 text-white' : 'text-gray-400 hover:text-white'}`}
+              >A 2 Aguas (Gable)</button>
+              <p className="text-gray-400 text-[9px] mt-1 mb-1 font-bold uppercase text-center w-full block">1 Agua (Cascada)</p>
+              <div className="grid grid-cols-2 gap-1">
+                <button onClick={() => setActiveRoofType('shed_spiral_n')} className={`py-1.5 flex justify-center rounded-md font-bold text-[10px] ${activeRoofType === 'shed_spiral_n' ? 'bg-amber-500 text-white' : 'text-gray-400 hover:text-white'}`}>Norte</button>
+                <button onClick={() => setActiveRoofType('shed_spiral_s')} className={`py-1.5 flex justify-center rounded-md font-bold text-[10px] ${activeRoofType === 'shed_spiral_s' ? 'bg-amber-500 text-white' : 'text-gray-400 hover:text-white'}`}>Sur</button>
+                <button onClick={() => setActiveRoofType('shed_spiral_e')} className={`py-1.5 flex justify-center rounded-md font-bold text-[10px] ${activeRoofType === 'shed_spiral_e' ? 'bg-amber-500 text-white' : 'text-gray-400 hover:text-white'}`}>Este</button>
+                <button onClick={() => setActiveRoofType('shed_spiral_w')} className={`py-1.5 flex justify-center rounded-md font-bold text-[10px] ${activeRoofType === 'shed_spiral_w' ? 'bg-amber-500 text-white' : 'text-gray-400 hover:text-white'}`}>Oeste</button>
+              </div>
             </div>
           </>
         )}

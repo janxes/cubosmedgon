@@ -23,7 +23,8 @@
     "straight-skeleton": "^3.0.0",
     "tailwind-merge": "^3.5.0",
     "tailwindcss": "^4.2.2",
-    "three": "^0.183.2"
+    "three": "^0.183.2",
+    "three-csg-ts": "^3.2.0"
   },
   "devDependencies": {
     "@eslint/js": "^9.39.4",

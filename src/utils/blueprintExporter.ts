@@ -31,7 +31,7 @@ export async function generateBlueprints(cubes: CubeModule[], userViewDataUrl: s
     
     if (cube.type === 'A') countA++;
     if (cube.type === 'B') countB++;
-    if (cube.hasRoof) roofs++;
+    if (cube.roofType && cube.roofType !== 'none') roofs++;
     if (cube.windows) {
       Object.values(cube.windows).forEach(w => {
         if (w.type === 'w300') w300++;

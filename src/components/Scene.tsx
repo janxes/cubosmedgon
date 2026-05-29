@@ -1,5 +1,5 @@
 import type { ThreeEvent } from '@react-three/fiber';
-import type { CubeModule, Rotation3D, ToolType, ModuleType, WindowType, WindowAlign } from '../App';
+import type { CubeModule, Rotation3D, ToolType, ModuleType, WindowType, WindowAlign, RoofType } from '../App';
 import { getGridBounds } from '../App';
 import Cube from './Cube';
 import RoofsRenderer from './RoofsRenderer';
@@ -10,6 +10,7 @@ interface SceneProps {
   activeRot: Rotation3D;
   activeWindowType: WindowType;
   activeWindowAlign: WindowAlign;
+  activeRoofType: RoofType;
   selectedCubeId: string | null;
   isOccupied: (x: number, y: number, z: number, ignoreId?: string) => boolean;
   onAddCube: (gx: number, gy: number, gz: number, type: ModuleType, rot: Rotation3D) => void;
@@ -18,12 +19,12 @@ interface SceneProps {
   onRemoveCube: (id: string) => void;
   onAddWindow: (id: string, normalStr: string, wType: WindowType, align: WindowAlign) => void;
   onRemoveWindow: (id: string, normalStr: string) => void;
-  onToggleRoof: (id: string) => void;
+  onToggleRoof: (id: string, rType: RoofType) => void;
   snapGrid: 3.0 | 1.5;
 }
 
 export default function Scene({ 
-  cubes, activeTool, activeRot, activeWindowType, activeWindowAlign, selectedCubeId, 
+  cubes, activeTool, activeRot, activeWindowType, activeWindowAlign, activeRoofType, selectedCubeId, 
   isOccupied, onAddCube, onMoveCube, onSelectCube, onRemoveCube, 
   onAddWindow, onRemoveWindow, onToggleRoof, snapGrid
 }: SceneProps) {
@@ -85,6 +86,7 @@ export default function Scene({
           activeRot={activeRot}
           activeWindowType={activeWindowType}
           activeWindowAlign={activeWindowAlign}
+          activeRoofType={activeRoofType}
           selectedCubeId={selectedCubeId}
           selectedBounds={selectedBounds as [number, number, number]}
           isOccupied={isOccupied}

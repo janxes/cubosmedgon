@@ -5,6 +5,7 @@ import Scene from './components/Scene';
 import UIOverlay from './components/UIOverlay';
 
 export type Rotation3D = [number, number, number]; // Euler degrees 0, 90, 180, 270
+export type RoofType = 'hip' | 'gable' | 'shed_spiral_n' | 'shed_spiral_s' | 'shed_spiral_e' | 'shed_spiral_w' | 'shed_n' | 'shed_s' | 'shed_e' | 'shed_w' | 'none';
 export type WindowType = 'w300' | 'w150' | 'w100' | 'door';
 export type WindowAlign = 'left' | 'center' | 'right';
 export type WindowData = { type: WindowType, align: WindowAlign };
@@ -19,7 +20,7 @@ export type CubeModule = {
   rot: Rotation3D;
   windows: WindowsMap;
   color?: string;
-  hasRoof?: boolean;
+  roofType?: RoofType;
 };
 
 export const MODULE_PRICES: Record<ModuleType, number> = {
@@ -49,11 +50,12 @@ function App() {
   const [activeRot, setActiveRot] = useState<Rotation3D>([0, 0, 0]);
   const [activeWindowType, setActiveWindowType] = useState<WindowType>('w150');
   const [activeWindowAlign, setActiveWindowAlign] = useState<WindowAlign>('center');
+  const [activeRoofType, setActiveRoofType] = useState<RoofType>('hip');
   const [selectedCubeId, setSelectedCubeId] = useState<string | null>(null);
   const [snapGrid, setSnapGrid] = useState<3.0 | 1.5>(3.0);
 
   const [history, setHistory] = useState<CubeModule[][]>([
-    [{ id: 'initial', pos: [0, 0, 0], type: 'A', rot: [0, 0, 0], windows: {} }]
+    [{ id: 'initial', pos: [0, 0, 0], type: 'A', rot: [0, 0, 0], windows: {}, roofType: 'none' }]
   ]);
   const [historyIndex, setHistoryIndex] = useState(0);
 
@@ -147,12 +149,12 @@ function App() {
   
   const totalBudget = cubes.reduce((acc, c) => {
     const windowsCost = Object.values(c.windows).reduce((sum, w) => sum + WINDOW_PRICES[w.type], 0);
-    const roofCost = c.hasRoof ? ROOF_PRICE_PER_MODULE : 0;
+    const roofCost = (c.roofType && c.roofType !== 'none') ? ROOF_PRICE_PER_MODULE : 0;
     return acc + MODULE_PRICES[c.type] + windowsCost + roofCost;
   }, 0);
 
   const resetProject = () => {
-    setCubes([{ id: 'initial', pos: [0, 0, 0], type: 'A', rot: [0, 0, 0], windows: {} }]);
+    setCubes([{ id: 'initial', pos: [0, 0, 0], type: 'A', rot: [0, 0, 0], windows: {}, roofType: 'none' }]);
     setSelectedCubeId(null);
   };
 
@@ -218,8 +220,47 @@ function App() {
     }));
   };
 
-  const toggleRoof = (id: string) => {
-    setCubes(prev => prev.map(c => c.id === id ? { ...c, hasRoof: !c.hasRoof } : c));
+  const toggleRoof = (id: string, rType: RoofType) => {
+    const targetModule = cubes.find(m => m.id === id);
+    if (!targetModule) return;
+    
+    const targetY = targetModule.pos[1];
+    const connectedIds = new Set<string>();
+    const queue = [targetModule.id];
+    
+    while(queue.length > 0) {
+      const currentId = queue.pop()!;
+      if (connectedIds.has(currentId)) continue;
+      connectedIds.add(currentId);
+      
+      const currentMod = cubes.find(m => m.id === currentId)!;
+      const [cw, ch, cd] = getGridBounds(currentMod.type, currentMod.rot);
+      
+      cubes.forEach(m => {
+        if (m.pos[1] !== targetY) return;
+        if (connectedIds.has(m.id)) return;
+        const [mw, mh, md] = getGridBounds(m.type, m.rot);
+        
+        const overlapX = Math.max(0, Math.min(currentMod.pos[0] + cw, m.pos[0] + mw) - Math.max(currentMod.pos[0], m.pos[0]));
+        const overlapZ = Math.max(0, Math.min(currentMod.pos[2] + cd, m.pos[2] + md) - Math.max(currentMod.pos[2], m.pos[2]));
+        
+        const adjX = (currentMod.pos[0] + cw === m.pos[0] || m.pos[0] + mw === currentMod.pos[0]) && overlapZ > 0;
+        const adjZ = (currentMod.pos[2] + cd === m.pos[2] || m.pos[2] + md === currentMod.pos[2]) && overlapX > 0;
+        
+        if (adjX || adjZ) {
+          queue.push(m.id);
+        }
+      });
+    }
+
+    const currentType = targetModule.roofType;
+    const isAdding = !currentType || currentType === 'none' || currentType !== rType;
+
+    setCubes(prev => prev.map(c => 
+      connectedIds.has(c.id) 
+        ? { ...c, roofType: isAdding ? rType : 'none' }
+        : c
+    ));
   };
 
   return (
@@ -257,6 +298,8 @@ function App() {
         setActiveWindowType={setActiveWindowType}
         activeWindowAlign={activeWindowAlign}
         setActiveWindowAlign={setActiveWindowAlign}
+        activeRoofType={activeRoofType}
+        setActiveRoofType={setActiveRoofType}
         onRotateSelected={rotateSelectedCube}
         hasSelection={!!selectedCubeId}
         snapGrid={snapGrid}
@@ -281,6 +324,7 @@ function App() {
             activeRot={activeRot}
             activeWindowType={activeWindowType}
             activeWindowAlign={activeWindowAlign}
+            activeRoofType={activeRoofType}
             selectedCubeId={selectedCubeId}
             isOccupied={isOccupied}
             onAddCube={addCube}
