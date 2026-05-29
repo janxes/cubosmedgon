@@ -1,15 +1,8 @@
 import type { CubeModule } from '../App';
 import { getGridBounds } from '../App';
-import polygonClipping from 'polygon-clipping';
-import straightSkeletonPkg from 'straight-skeleton';
-const { SkeletonBuilder } = straightSkeletonPkg;
+import * as THREE from 'three';
 
-export let isSkeletonReady = false;
-SkeletonBuilder.init().then(() => {
-    isSkeletonReady = true;
-}).catch(e => console.error("SkeletonBuilder error:", e));
-
-export type Roof3DPolygon = { x: number, y: number, z: number }[];
+export type Roof3DPolygon = { x: number, y: number, z: number, roofType?: string }[];
 
 export type UnifiedRoof = {
     yBase: number;
@@ -17,217 +10,159 @@ export type UnifiedRoof = {
     skirts3D?: Roof3DPolygon[];
 };
 
-// No pointToLineDistance needed, time property of vertex contains orthogonal distance.
+const OVERHANG = 0.5 / 1.5; 
 
-// Area calculation removed as polygon-clipping handles correct CCW/CW orientations.
-
-import * as THREE from 'three';
-
-export function generateUnifiedRoofs(cubes: CubeModule[]): UnifiedRoof[] {
-    if (!isSkeletonReady) return [];
+export function generateUnifiedRoofs(cubes: CubeModule[], pitchPercent: number = 12): UnifiedRoof[] {
     const roofCubes = cubes.filter(c => c.roofType && c.roofType !== 'none');
     if (roofCubes.length === 0) return [];
 
-    // Map all covered cells with highest Y and their roofType
-    // For simplicity, we prioritize the roofType of the module that defines the max Y.
-    const maxHTable = new Map<string, { y: number, roofType: string }>();
-
+    const floorGroups = new Map<number, CubeModule[]>();
     roofCubes.forEach(c => {
-        const [w, h, d] = getGridBounds(c.type, c.rot);
-        for (let dx = 0; dx < w; dx++) {
-            for (let dz = 0; dz < d; dz++) {
-                const nx = c.pos[0] + dx;
-                const nz = c.pos[2] + dz;
-                const ny = c.pos[1] + h; 
-                const key = `${Math.round(nx)},${Math.round(nz)}`;
-                const current = maxHTable.get(key) || { y: 0, roofType: 'none' };
-                if (ny > current.y) {
-                    maxHTable.set(key, { y: ny, roofType: c.roofType! });
-                }
-            }
-        }
-    });
-
-    // Group cells by Y + roofType level
-    const groups = new Map<string, { x: number, z: number, y: number, roofType: string }[]>();
-    maxHTable.forEach((data, key) => {
-        const [x, z] = key.split(',').map(Number);
-        const groupKey = `${data.y}_${data.roofType}`;
-        if (!groups.has(groupKey)) groups.set(groupKey, []);
-        groups.get(groupKey)!.push({ x, z, y: data.y, roofType: data.roofType });
+        const h = getGridBounds(c.type, c.rot)[1];
+        const yTop = c.pos[1] + h;
+        if (!floorGroups.has(yTop)) floorGroups.set(yTop, []);
+        floorGroups.get(yTop)!.push(c);
     });
 
     const unifiedRoofs: UnifiedRoof[] = [];
-    const pitch = 15 * (Math.PI / 180);
+    // Dynamic pitch based on UI (pitchPercent is in %, so we divide by 100 for tangent)
+    const activePitchRad = Math.atan(pitchPercent / 100);
 
-    // Group cells by yBase specifically, so we don't mix floors for the global boundaries
-    const floors = new Map<number, typeof groups>();
-    groups.forEach((cells, groupKey) => {
-        const y = cells[0].y;
-        if (!floors.has(y)) floors.set(y, new Map());
-        floors.get(y)!.set(groupKey, cells);
-    });
+    floorGroups.forEach((cells, yBase) => {
+        const polys3D: Roof3DPolygon[] = [];
+        const skirts3D: Roof3DPolygon[] = [];
 
-    floors.forEach((floorGroups, yBase) => {
-        // Collect all cells for this floor
-        const allFloorCells: {x: number, z: number}[] = [];
-        floorGroups.forEach(cells => allFloorCells.push(...cells));
+        const clusters: CubeModule[][] = [];
+        const visited = new Set<string>();
         
-        const allInnerRects: polygonClipping.Geom[] = allFloorCells.map(c => [[
-            [c.x, c.z],
-            [c.x + 1, c.z],
-            [c.x + 1, c.z + 1],
-            [c.x, c.z + 1],
-            [c.x, c.z] 
-        ]]);
-        const globalInnerUnion = allInnerRects.length > 0 ? polygonClipping.union(allInnerRects[0], ...allInnerRects.slice(1)) : [];
+        cells.forEach(start => {
+            if (visited.has(start.id)) return;
+            const cluster: CubeModule[] = [];
+            const queue = [start];
+            while(queue.length > 0) {
+                const c = queue.shift()!;
+                if (visited.has(c.id)) continue;
+                visited.add(c.id);
+                cluster.push(c);
+                cells.forEach(other => {
+                    if (visited.has(other.id)) return;
+                    const [w1, , d1] = getGridBounds(c.type, c.rot);
+                    const [w2, , d2] = getGridBounds(other.type, other.rot);
+                    const ox = Math.max(0, Math.min(c.pos[0]+w1, other.pos[0]+w2) - Math.max(c.pos[0], other.pos[0]));
+                    const oz = Math.max(0, Math.min(c.pos[2]+d1, other.pos[2]+d2) - Math.max(c.pos[2], other.pos[2]));
+                    if ((ox > 0 && oz >= 0) || (ox >= 0 && oz > 0)) {
+                        if (Math.abs(c.pos[0]-other.pos[0]) <= 2.1 && Math.abs(c.pos[2]-other.pos[2]) <= 2.1) queue.push(other);
+                    }
+                });
+            }
+            clusters.push(cluster);
+        });
 
-        const isSegmentOnGlobalBoundary = (p1: [number, number], p2: [number, number]) => {
-            const midX = (p1[0] + p2[0]) / 2;
-            const midZ = (p1[1] + p2[1]) / 2;
-            const EPSILON = 0.001;
-            for (const poly of globalInnerUnion) {
-                for (const ring of poly) {
-                    for (let i = 0; i < ring.length - 1; i++) {
-                        const rp1 = ring[i];
-                        const rp2 = ring[i+1];
-                        
-                        const crossProduct = Math.abs((midZ - rp1[1]) * (rp2[0] - rp1[0]) - (midX - rp1[0]) * (rp2[1] - rp1[1]));
-                        if (crossProduct > EPSILON) continue;
-                        
-                        const dotProduct = (midX - rp1[0]) * (rp2[0] - rp1[0]) + (midZ - rp1[1]) * (rp2[1] - rp1[1]);
-                        if (dotProduct < -EPSILON) continue;
-                        
-                        const squaredLength = (rp2[0] - rp1[0]) ** 2 + (rp2[1] - rp1[1]) ** 2;
-                        if (dotProduct > squaredLength + EPSILON) continue;
-                        
-                        return true;
+        clusters.forEach(cluster => {
+            const roofType = cluster[0].roofType || 'hip';
+            
+            let minX = Infinity, maxX = -Infinity, minZ = Infinity, maxZ = -Infinity;
+            cluster.forEach(c => {
+                const [w,,d] = getGridBounds(c.type, c.rot);
+                if (c.pos[0] < minX) minX = c.pos[0];
+                if (c.pos[0] + w > maxX) maxX = c.pos[0] + w;
+                if (c.pos[2] < minZ) minZ = c.pos[2];
+                if (c.pos[2] + d > maxZ) maxZ = c.pos[2] + d;
+            });
+
+            const exMinX = minX - OVERHANG, exMaxX = maxX + OVERHANG;
+            const exMinZ = minZ - OVERHANG, exMaxZ = maxZ + OVERHANG;
+
+            const heightAt = (x: number, z: number) => {
+                // We use module bounds (inner) for height logic
+                const bMinX = minX, bMaxX = maxX, bMinZ = minZ, bMaxZ = maxZ;
+                
+                if (roofType === 'hip') {
+                    const distEdge = Math.min(x - exMinX, exMaxX - x, z - exMinZ, exMaxZ - z);
+                    return Math.max(0, (distEdge - OVERHANG) * Math.tan(activePitchRad));
+                }
+                if (roofType === 'gable') {
+                    const w = bMaxX - bMinX, d = bMaxZ - bMinZ;
+                    if (w >= d) {
+                        const midZ = (bMinZ + bMaxZ) / 2;
+                        return (d/2 - Math.abs(z - midZ)) * Math.tan(activePitchRad);
+                    } else {
+                        const midX = (bMinX + bMaxX) / 2;
+                        return (w/2 - Math.abs(x - midX)) * Math.tan(activePitchRad);
+                    }
+                }
+                
+                // SHED (Cascada) - Precise 4-way direction
+                // We use endsWith to avoid spiral mismatch
+                const tan = Math.tan(activePitchRad);
+                if (roofType.endsWith('_n')) return (bMaxZ - z) * tan;
+                if (roofType.endsWith('_s')) return (z - bMinZ) * tan;
+                if (roofType.endsWith('_w')) return (bMaxX - x) * tan;
+                if (roofType.endsWith('_e')) return (x - bMinX) * tan;
+                return 0;
+            };
+
+            const step = 0.25; // Smaller step for better precision
+            for (let x = exMinX; x < exMaxX; x += step) {
+                for (let z = exMinZ; z < exMaxZ; z += step) {
+                    const cx = x + step/2, cz = z + step/2;
+                    let inFootprint = false;
+                    cluster.forEach(c => {
+                        const [w,,d] = getGridBounds(c.type, c.rot);
+                        if (cx >= c.pos[0]-OVERHANG-0.01 && cx <= c.pos[0]+w+OVERHANG+0.01 && cz >= c.pos[2]-OVERHANG-0.01 && cz <= c.pos[2]+d+OVERHANG+0.01) {
+                            inFootprint = true;
+                        }
+                    });
+
+                    if (inFootprint) {
+                        const x1 = x, x2 = x+step;
+                        const z1 = z, z2 = z+step;
+                        const p1 = { x: x1, y: heightAt(x1, z1), z: z1 };
+                        const p2 = { x: x2, y: heightAt(x2, z1), z: z1 };
+                        const p3 = { x: x2, y: heightAt(x2, z2), z: z2 };
+                        const p4 = { x: x1, y: heightAt(x1, z2), z: z2 };
+                        const poly: Roof3DPolygon = [p1, p2, p3, p4];
+                        (poly as any).roofType = roofType;
+                        polys3D.push(poly);
                     }
                 }
             }
-            return false;
-        };
 
-        floorGroups.forEach((cells, groupKey) => {
-            const roofType = cells[0].roofType;
-        
-        // Configuracion de alero (overhang): 0.5 metros
-        const overhangMeters = 0.5; 
-        const overhang = overhangMeters / 1.5; // Convertir a unidades de grid (cada grid unit es 1.5m)
-
-        // Create polygon for each cell without overhang (for vertical skirts)
-        const innerRects: polygonClipping.Geom[] = cells.map(c => [[
-            [c.x, c.z],
-            [c.x + 1, c.z],
-            [c.x + 1, c.z + 1],
-            [c.x, c.z + 1],
-            [c.x, c.z] 
-        ]]);
-        const innerUnion = polygonClipping.union(innerRects[0], ...innerRects.slice(1));
-
-        // Create 1x1 polygon for each cell, expanded by the overhang
-        const rects: polygonClipping.Geom[] = cells.map(c => [[
-            [c.x - overhang, c.z - overhang],
-            [c.x + 1 + overhang, c.z - overhang],
-            [c.x + 1 + overhang, c.z + 1 + overhang],
-            [c.x - overhang, c.z + 1 + overhang],
-            [c.x - overhang, c.z - overhang] // close the ring
-        ]]);
-
-        // Union all cell polygons
-        const unionResult = polygonClipping.union(rects[0], ...rects.slice(1));
-        
-        unionResult.forEach(poly => {
-            try {
-                // Formatting for straight-skeleton
-                const formattedPoly = poly.map(ring => ring.map(p => [p[0], p[1]]));
-                
-                if (roofType === 'hip') {
-                    const skeleton = SkeletonBuilder.buildFromPolygon(formattedPoly);
-                    if (!skeleton) return;
-                    
-                    const verts = skeleton.vertices;
-                    const polys3D: Roof3DPolygon[] = skeleton.polygons.map((skelPolyIndices: number[]) => {
-                        return skelPolyIndices.map(idx => {
-                            const v = verts[idx];
-                            const height = (v[2] - overhang) * Math.tan(pitch);
-                            return { x: v[0], y: height, z: v[1] };
-                        });
+            // Skirts logic
+            cluster.forEach(c => {
+                const [w,,d] = getGridBounds(c.type, c.rot);
+                const corners = [[c.pos[0],c.pos[2]], [c.pos[0]+w,c.pos[2]], [c.pos[0]+w,c.pos[2]+d], [c.pos[0],c.pos[2]+d], [c.pos[0],c.pos[2]]];
+                for(let i=0; i<4; i++) {
+                    const p1 = corners[i], p2 = corners[i+1];
+                    let isExterior = true;
+                    cluster.forEach(other => {
+                       if (other === c) return;
+                       const [ow,,od] = getGridBounds(other.type, other.rot);
+                       const mx = (p1[0]+p2[0])/2, mz = (p1[1]+p2[1])/2;
+                       if (mx >= other.pos[0] && mx <= other.pos[0]+ow && mz >= other.pos[2] && mz <= other.pos[2]+od) {
+                          if ((p1[0]===p2[0] && (mx===other.pos[0]||mx===other.pos[0]+ow)) || (p1[1]===p2[1] && (mz===other.pos[2]||mz===other.pos[2]+od))) {
+                             const overlap = p1[0]===p2[0] ? Math.max(0, Math.min(Math.max(p1[1],p2[1]), other.pos[2]+od)-Math.max(Math.min(p1[1],p2[1]),other.pos[2])) : Math.max(0, Math.min(Math.max(p1[0],p2[0]), other.pos[0]+ow)-Math.max(Math.min(p1[0],p2[0]),other.pos[0]));
+                             if (overlap > 0.1) isExterior = false;
+                          }
+                       }
                     });
-                    
-                    unifiedRoofs.push({ yBase, polygons3D: polys3D });
-                } else {
-                    // PITCHED ROOF 1 AGUA
-                    const contour = formattedPoly[0].map(pt => new THREE.Vector2(pt[0], pt[1]));
-                    // polygonClipping sometimes returns redundant last points. THREE handles this, but just in case.
-                    const holes = formattedPoly.slice(1).map(h => h.map(pt => new THREE.Vector2(pt[0], pt[1])));
-                    
-                    const indices = THREE.ShapeUtils.triangulateShape(contour, holes);
-                    const allPts = [...formattedPoly[0]];
-                    for(let i=1; i<formattedPoly.length; i++) allPts.push(...formattedPoly[i]);
-                    
-                    let minX = Infinity, maxX = -Infinity, minZ = Infinity, maxZ = -Infinity;
-                    allPts.forEach(pt => {
-                        if(pt[0]<minX) minX = pt[0];
-                        if(pt[0]>maxX) maxX = pt[0];
-                        if(pt[1]<minZ) minZ = pt[1];
-                        if(pt[1]>maxZ) maxZ = pt[1];
-                    });
-
-                    const heightAt = (x: number, z: number) => {
-                        let height = 0;
-                        if (roofType === 'shed_n') {
-                            height = (z - (minZ + overhang)) * Math.tan(pitch);
-                        } else if (roofType === 'shed_s') {
-                            height = ((maxZ - overhang) - z) * Math.tan(pitch);
-                        } else if (roofType === 'shed_w') {
-                            height = (x - (minX + overhang)) * Math.tan(pitch);
-                        } else if (roofType === 'shed_e') {
-                            height = ((maxX - overhang) - x) * Math.tan(pitch);
+                    if (isExterior) {
+                        const h1 = heightAt(p1[0], p1[1]), h2 = heightAt(p2[0], p2[1]);
+                        if (h1 > 0.01 || h2 > 0.01) {
+                            skirts3D.push([
+                                { x: p1[0], y: 0, z: p1[1] }, { x: p2[0], y: 0, z: p2[1] },
+                                { x: p2[0], y: h2, z: p2[1] }, { x: p1[0], y: h1, z: p1[1] }
+                            ]);
                         }
-                        return height;
-                    };
-
-                    const polys3D: Roof3DPolygon[] = [];
-                    indices.forEach(tri => {
-                        const p3d = tri.map(idx => {
-                            const pt = allPts[idx];
-                            return { x: pt[0], y: heightAt(pt[0], pt[1]), z: pt[1] };
-                        });
-                        polys3D.push(p3d);
-                    });
-                    
-                    const skirts3D: Roof3DPolygon[] = [];
-                    innerUnion.forEach(innerPoly => {
-                        innerPoly.forEach(ring => {
-                            for (let i = 0; i < ring.length - 1; i++) {
-                                const p1 = ring[i];
-                                const p2 = ring[i + 1];
-                                
-                                // Only draw vertical skirts if this segment is on the global exterior boundary of the building
-                                if (isSegmentOnGlobalBoundary(p1, p2)) {
-                                    const h1 = heightAt(p1[0], p1[1]);
-                                    const h2 = heightAt(p2[0], p2[1]);
-                                    
-                                    skirts3D.push([
-                                        { x: p1[0], y: 0, z: p1[1] },
-                                        { x: p2[0], y: 0, z: p2[1] },
-                                        { x: p2[0], y: h2, z: p2[1] },
-                                        { x: p1[0], y: h1, z: p1[1] }
-                                    ]);
-                                }
-                            }
-                        });
-                    });
-                    
-                    unifiedRoofs.push({ yBase, polygons3D: polys3D, skirts3D });
+                    }
                 }
-            } catch (e) {
-                console.error("Error building roof", e);
-            }
+            });
         });
-    });
+
+        unifiedRoofs.push({ yBase, polygons3D: polys3D, skirts3D });
     });
 
     return unifiedRoofs;
 }
+
+export const isSkeletonReady = true;

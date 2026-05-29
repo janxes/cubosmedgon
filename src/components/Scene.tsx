@@ -11,6 +11,8 @@ interface SceneProps {
   activeWindowType: WindowType;
   activeWindowAlign: WindowAlign;
   activeRoofType: RoofType;
+  pitchPercent: number;
+  roofRot: number;
   selectedCubeId: string | null;
   isOccupied: (x: number, y: number, z: number, ignoreId?: string) => boolean;
   onAddCube: (gx: number, gy: number, gz: number, type: ModuleType, rot: Rotation3D) => void;
@@ -24,7 +26,7 @@ interface SceneProps {
 }
 
 export default function Scene({ 
-  cubes, activeTool, activeRot, activeWindowType, activeWindowAlign, activeRoofType, selectedCubeId, 
+  cubes, activeTool, activeRot, activeWindowType, activeWindowAlign, activeRoofType, pitchPercent, roofRot, selectedCubeId, 
   isOccupied, onAddCube, onMoveCube, onSelectCube, onRemoveCube, 
   onAddWindow, onRemoveWindow, onToggleRoof, snapGrid
 }: SceneProps) {
@@ -99,7 +101,7 @@ export default function Scene({
           onToggleRoof={onToggleRoof}
         />
       ))}
-      <RoofsRenderer cubes={cubes} />
+      <RoofsRenderer cubes={cubes} pitchPercent={pitchPercent} roofRot={roofRot} />
     </>
   );
 }

@@ -43,13 +43,17 @@ interface UIOverlayProps {
   setActiveWindowAlign: (w: WindowAlign) => void;
   activeRoofType: RoofType;
   setActiveRoofType: (r: RoofType) => void;
+  pitchPercent: number;
+  setPitchPercent: (p: number) => void;
+  roofRot: number;
+  setRoofRot: React.Dispatch<React.SetStateAction<number>>;
   onRotateSelected: () => void;
   hasSelection: boolean;
   snapGrid: 3.0 | 1.5;
   setSnapGrid: React.Dispatch<React.SetStateAction<3.0 | 1.5>>;
 }
 
-export default function UIOverlay({ cubes, cubeCount, floors, totalBudget, onReset, undo, redo, canUndo, canRedo, onSave, onLoad, surfaces, activeTool, setActiveTool, activeRot, setActiveRot, activeWindowType, setActiveWindowType, activeWindowAlign, setActiveWindowAlign, activeRoofType, setActiveRoofType, onRotateSelected, hasSelection, snapGrid, setSnapGrid }: UIOverlayProps) {
+export default function UIOverlay({ cubes, cubeCount, floors, totalBudget, onReset, undo, redo, canUndo, canRedo, onSave, onLoad, surfaces, activeTool, setActiveTool, activeRot, setActiveRot, activeWindowType, setActiveWindowType, activeWindowAlign, setActiveWindowAlign, activeRoofType, setActiveRoofType, pitchPercent, setPitchPercent, roofRot, setRoofRot, onRotateSelected, hasSelection, snapGrid, setSnapGrid }: UIOverlayProps) {
   const formattedBudget = new Intl.NumberFormat('es-ES', { style: 'currency', currency: 'EUR', maximumFractionDigits: 0 }).format(totalBudget);
 
   const handleExport = () => {
@@ -180,6 +184,17 @@ export default function UIOverlay({ cubes, cubeCount, floors, totalBudget, onRes
 
         {activeTool === 'ROOF' && (
           <>
+            <p className="text-gray-400 text-[10px] mb-1 font-bold uppercase tracking-widest text-center">Pendiente (%)</p>
+            <div className="grid grid-cols-4 gap-1 mb-3 bg-[#0f172a] rounded-lg p-1 border border-white/10">
+              {[12, 14, 15, 18, 20, 33, 40, 50].map(p => (
+                <button 
+                  key={p} 
+                  onClick={() => setPitchPercent(p)} 
+                  className={`py-1 flex justify-center rounded-md font-bold text-[10px] ${pitchPercent === p ? 'bg-indigo-500 text-white' : 'text-gray-400 hover:text-white'}`}
+                >{p}%</button>
+              ))}
+            </div>
+
             <p className="text-gray-400 text-[10px] mb-1 font-bold uppercase tracking-widest text-center">Tipo de Cubierta</p>
             <div className="flex flex-col bg-[#0f172a] rounded-lg p-1 border border-white/10 space-y-1">
               <button 
@@ -190,6 +205,13 @@ export default function UIOverlay({ cubes, cubeCount, floors, totalBudget, onRes
                 onClick={() => setActiveRoofType('gable')} 
                 className={`w-full py-1.5 flex justify-center rounded-md font-bold text-xs ${activeRoofType === 'gable' ? 'bg-amber-500 text-white' : 'text-gray-400 hover:text-white'}`}
               >A 2 Aguas (Gable)</button>
+              
+              <button 
+                onClick={() => setRoofRot(r => (r + 90) % 180)} 
+                className="w-full py-1.5 mt-2 flex items-center justify-center gap-2 rounded-md font-bold text-[10px] bg-indigo-500/20 text-indigo-300 hover:bg-indigo-500/40 border border-indigo-500/30"
+              >
+                <RotateCcw size={14} /> GIRAR TEJADO 90°
+              </button>
               <p className="text-gray-400 text-[9px] mt-1 mb-1 font-bold uppercase text-center w-full block">1 Agua (Cascada)</p>
               <div className="grid grid-cols-2 gap-1">
                 <button onClick={() => setActiveRoofType('shed_spiral_n')} className={`py-1.5 flex justify-center rounded-md font-bold text-[10px] ${activeRoofType === 'shed_spiral_n' ? 'bg-amber-500 text-white' : 'text-gray-400 hover:text-white'}`}>Norte</button>

@@ -51,6 +51,8 @@ function App() {
   const [activeWindowType, setActiveWindowType] = useState<WindowType>('w150');
   const [activeWindowAlign, setActiveWindowAlign] = useState<WindowAlign>('center');
   const [activeRoofType, setActiveRoofType] = useState<RoofType>('hip');
+  const [pitchPercent, setPitchPercent] = useState<number>(12);
+  const [roofRot, setRoofRot] = useState<number>(0);
   const [selectedCubeId, setSelectedCubeId] = useState<string | null>(null);
   const [snapGrid, setSnapGrid] = useState<3.0 | 1.5>(3.0);
 
@@ -300,6 +302,10 @@ function App() {
         setActiveWindowAlign={setActiveWindowAlign}
         activeRoofType={activeRoofType}
         setActiveRoofType={setActiveRoofType}
+        pitchPercent={pitchPercent}
+        setPitchPercent={setPitchPercent}
+        roofRot={roofRot}
+        setRoofRot={setRoofRot}
         onRotateSelected={rotateSelectedCube}
         hasSelection={!!selectedCubeId}
         snapGrid={snapGrid}
@@ -325,6 +331,8 @@ function App() {
             activeWindowType={activeWindowType}
             activeWindowAlign={activeWindowAlign}
             activeRoofType={activeRoofType}
+            pitchPercent={pitchPercent}
+            roofRot={roofRot}
             selectedCubeId={selectedCubeId}
             isOccupied={isOccupied}
             onAddCube={addCube}
